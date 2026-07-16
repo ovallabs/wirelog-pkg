@@ -24,7 +24,7 @@ Work pauses for human review at the end of every stage.
 
 - [ ] `logger.go` (covered via writer tests) — insert failures produce exactly one Logger line and never propagate (B2); default is silent no-op
 - [ ] `migrate.go` + `migrate_test.go` — FRD DDL embedded verbatim; auto-migrate default false
-- [ ] `writer.go` + `writer_test.go` — single goroutine, flush at batch size OR interval, Close drains → final flush → pool close → goroutine exit (B13); NULL mapping for ''/0/nil (B15); numbered placeholders only, 10s insert timeout (B13)
+- [ ] `writer.go` + `writer_test.go` — single goroutine, flush at batch size OR interval, Close drains → final flush → pool close → goroutine exit (B13); NULL mapping for ''/0/nil (B15); numbered placeholders only, 10s insert timeout (B13); insert failure adds len(batch) to Dropped (B2, Q4 ruling); tests use in-package recording fake, no new dependency (Q8 ruling)
 - [ ] `options.go` + `options_test.go` — instance option defaults: buffer 2048, batch 100, flush 2s, no-op logger, auto-migrate off
 - [ ] `wirelog.go` + `wirelog_test.go` — HTTPClient nil-receiver-safe, degrades to plain otelhttp client (B11); chain order wirelog → otelhttp → http.DefaultTransport (B12); non-blocking enqueue increments Dropped (B2)
 - [ ] optional `//go:build integration` writer test against real Postgres (only test allowed to need Docker)
@@ -42,17 +42,17 @@ Work pauses for human review at the end of every stage.
 - [ ] `go test -race ./...` clean (B17 enforcement)
 - [ ] `go vet ./...` clean
 
-## Open questions
+## Open questions — RESOLVED 2026-07-16, amended into the FRD
 
-Ambiguities/conflicts found before writing code. Blocking ones marked ⛔; the rest have a proposed default I'll apply unless overruled.
+All ten ruled on by the user; the FRD is the single source of truth for the outcomes. Summary:
 
-1. ⛔ **Response-capture timing: B1 vs B9/B3.** B1 requires masking + enqueue to happen *inside RoundTrip*, but the response body hasn't been read yet when RoundTrip returns. B9's "actual bytes read during the copy, falling back to Content-Length when the body isn't read" implies a lazy tee (enqueue at body EOF/Close), while body_test's "copyBody returns full bytes to caller + truncated capture" implies an eager full read inside RoundTrip. These are different designs. **Proposed:** eager — read the full response body inside RoundTrip, hand the caller a reconstructed `io.NopCloser(bytes.Reader)` over the complete bytes, capture the truncated copy, enqueue before returning. Simple, satisfies B1/B3/B4 exactly; cost is buffering whole responses in memory. Then B9's Content-Length fallback applies only when we deliberately don't read (see Q2). Confirm eager buffering is acceptable for provider-API-sized responses.
-2. **When is the body "not read" (B9)?** With eager capture the body is always read when CaptureBodies=true. **Proposed:** with CaptureBodies=false or a SkipBodyPaths match we do not read the body at all; response_size falls back to Content-Length (and 0 when Content-Length is -1/chunked). request_size likewise from req.ContentLength, 0 when unknown.
-3. **B2 "bit-for-bit" vs body replacement.** Returning the response truly untouched is impossible if we must read its body (Q1). **Proposed interpretation:** same *http.Response (status, headers, trailer, error identity) with only resp.Body swapped for a reader that yields identical bytes; the error return is always the wrapped transport's error unmodified.
-4. **Does `Dropped()` count insert-failure batches?** B2 defines the counter for full-buffer enqueue drops; insert failures also "drop the batch". **Proposed:** Dropped() counts only enqueue drops (its stated definition); insert-failure drops are visible via the Logger line only.
-5. **Header masking vs custom Masker.** Does a custom Masker apply to denied header values, or are headers always replaced with the `"•••"` constant? mask_test's "built-in + custom header masking" could mean DenyHeaders, not Masker. **Proposed:** denied headers always become the mask constant; the Masker applies to JSON body fields only.
-6. **Zero-value Config.** `HTTPClient(cfg)` accepts a Config that may be a literal, not from NewConfig: MaxBodyBytes 0, nil PathNormalizer, empty MaskFields. **Proposed:** HTTPClient normalizes at mint — MaxBodyBytes<=0 → 16384, nil PathNormalizer → DefaultNormalizer; empty MaskFields stays empty (literal construction opts out of defaults deliberately).
-7. **Substring match target for ExcludePaths/SkipBodyPaths.** `req.URL.Path` only, or the full URL including query? `/token` in a query string would match the latter. **Proposed:** match against `req.URL.Path` only.
-8. **writer_test mock.** FRD's dependency rule allows nothing beyond pgx/otelhttp/stdlib, but the test list mentions "mock/pgxmock or a recording fake". **Proposed:** an in-package recording fake behind a small unexported insert interface — no new dependency, per the FRD's default-no rule.
-9. **WithTags collision semantics.** MERGE across calls — on duplicate keys, later call wins? **Proposed:** yes, last write wins per key (shallow merge).
-10. **`endpoint` column contents.** B14 says "both raw path and normalized endpoint stored". **Proposed:** `path` = raw URL path, `endpoint` = normalized path only (no host/method — those have their own columns... method does; host does not). Sub-question: should host:port be stored anywhere? Currently nothing in the schema holds it. Proposed: no, schema is verbatim.
+1. **Response-capture timing** — ACCEPTED eager: full response read inside RoundTrip, caller gets io.NopCloser over complete bytes, truncated capture, enqueue before return. SkipBodyPaths is the escape hatch. (B3)
+2. **Body "not read"** — ACCEPTED: CaptureBodies=false or SkipBodyPaths match → body never read; sizes fall back to Content-Length / req.ContentLength, 0 when unknown. (B9)
+3. **"Bit-for-bit"** — ACCEPTED: same *http.Response with only Body swapped for identical-bytes reader; error always unmodified. (B2)
+4. **Dropped() scope** — OVERRULED: counts BOTH enqueue drops and insert-failure batch drops (+len(batch)); total data-loss visibility. (B2/B13)
+5. **Header masking vs Masker** — ACCEPTED: denied headers always `"•••"`; Masker is JSON-body-only. (B1/B5)
+6. **Zero-value Config** — ACCEPTED: HTTPClient normalizes at mint; empty MaskFields stays empty; README warns literal construction opts out of defaults. (B11)
+7. **Path match target** — ACCEPTED: `req.URL.Path` only, never the query. (B8)
+8. **writer_test mock** — ACCEPTED: in-package recording fake behind unexported insert interface, no new dependency.
+9. **WithTags collisions** — ACCEPTED: shallow merge, last write wins per key.
+10. **endpoint column** — ACCEPTED: path = raw, endpoint = normalized; host not stored (provider column serves that role); schema verbatim. (B14)

@@ -86,8 +86,8 @@ type Config struct {
     MaskFields     []string
     DenyHeaders    []string
     Masker         Masker
-    SkipBodyPaths  []string // substring match: metadata+sizes only, never bodies
-    ExcludePaths   []string // substring match: NO record at all
+    SkipBodyPaths  []string // substring match on req.URL.Path only: metadata+sizes, never bodies
+    ExcludePaths   []string // substring match on req.URL.Path only: NO record at all
     PathNormalizer func(string) string // default DefaultNormalizer
 }
 func NewConfig(provider string, opts ...ConfigOption) Config
@@ -103,7 +103,7 @@ func WithRef(ctx context.Context, ref string) context.Context
 func WithOperation(ctx context.Context, op Operation) context.Context
 func WithConsumer(ctx context.Context, consumer string) context.Context
 func WithIdempotencyKey(ctx context.Context, key string) context.Context
-func WithTags(ctx context.Context, tags map[string]any) context.Context  // MERGES across calls
+func WithTags(ctx context.Context, tags map[string]any) context.Context  // MERGES across calls; shallow, last write wins per key
 
 ```
 
@@ -149,20 +149,20 @@ create index if not exists idx_pal_resp_body_gin on provider_api_logs using gin 
 
 ## Behaviors (non-negotiable)
 
-1. Mask before persist. No sensitive value may exist beyond the transport unmasked. Masking runs in RoundTrip before enqueue. Masked value constant: `"•••"` unless a custom Masker is set.
-2. Logging never blocks or fails a provider call. Enqueue is `select { case ch <- rec: default: dropped++ }`. Insert failures: one Logger line, drop the batch, never propagate. RoundTrip must return the response/error from the wrapped transport bit-for-bit.
-3. Body stream integrity. The caller ALWAYS receives the complete response body even when wirelog logs a truncated copy. Request bodies are snapshotted via `req.GetBody` only — never consume `req.Body`. If `GetBody` is nil, record size (from ContentLength) and skip content.
+1. Mask before persist. No sensitive value may exist beyond the transport unmasked. Masking runs in RoundTrip before enqueue. Masked value constant: `"•••"`. A custom Masker applies to JSON body fields only; denied headers always become the constant.
+2. Logging never blocks or fails a provider call. Enqueue is `select { case ch <- rec: default: dropped++ }`. Insert failures: one Logger line, drop the batch adding len(batch) to the drop counter, never propagate. Dropped() reports total records that never reached the DB: enqueue drops plus insert-failure drops. RoundTrip returns the same *http.Response with only resp.Body swapped for a reader yielding identical bytes; the error return is always the wrapped transport's error, unmodified.
+3. Body stream integrity. Response capture is EAGER: RoundTrip reads the full response body, returns io.NopCloser over the complete bytes to the caller, keeps a truncated copy, and enqueues before returning. SkipBodyPaths is the escape hatch for endpoints where whole-response buffering is unacceptable. Request bodies are snapshotted via `req.GetBody` only — never consume `req.Body`. If `GetBody` is nil, record size (from ContentLength) and skip content.
 4. Truncate before parse. Body bytes are cut to MaxBodyBytes BEFORE json.Unmarshal. Non-JSON or broken-by-truncation bodies wrap as `{"_raw": "<string>", "_truncated": true?}`. Empty body → SQL NULL. jsonb columns receive valid JSON or NULL, always.
 5. Header masking copies, never mutates. Built-in denylist (always, case-insensitive): authorization, proxy-authorization, cookie, set-cookie, x-api-key, api-key, x-auth-token, x-signature. Plus Config.DenyHeaders.
 6. Recursive body masking. Walk decoded JSON (objects + arrays); keys matched case-insensitively against the mask set; on match replace the VALUE entirely (do not recurse into a matched subtree).
 7. Outcome classification. Response present: 2xx → success, else provider_error. Error path: errors.Is(err, context.DeadlineExceeded) OR errors.As net.Error with Timeout() → timeout; anything else → network. Store err.Error() in the error column.
-8. ExcludePaths short-circuit before ANY work (no timing, no snapshot). SkipBodyPaths still record metadata, sizes, masked headers.
-9. Sizes always recorded (request_size, response_size) even with CaptureBodies=false. Response size = actual bytes read during the copy, falling back to Content-Length when the body isn't read.
+8. ExcludePaths short-circuit before ANY work (no timing, no snapshot). SkipBodyPaths still record metadata, sizes, masked headers. Both match as substrings of `req.URL.Path` only, never the query string.
+9. Sizes always recorded (request_size, response_size) even with CaptureBodies=false. Response size = actual bytes read during the eager copy. With CaptureBodies=false or a SkipBodyPaths match the body is not read at all: response_size = Content-Length (0 when unknown/chunked); request_size from req.ContentLength likewise (0 when unknown).
 10. Consumer precedence: WithConsumer(ctx) > Config.Consumer > instance WithDefaultConsumer.
-11. Nil-safe HTTPClient: called on a nil *Wirelog it returns a plain client with `otelhttp.NewTransport(http.DefaultTransport)` — services that boot despite wirelog init failure degrade silently.
+11. Nil-safe HTTPClient: called on a nil *Wirelog it returns a plain client with `otelhttp.NewTransport(http.DefaultTransport)` — services that boot despite wirelog init failure degrade silently. HTTPClient normalizes a literal Config at mint: MaxBodyBytes<=0 → 16384, nil PathNormalizer → DefaultNormalizer; empty MaskFields stays empty (literal construction opts out of the shared defaults; NewConfig is the recommended path).
 12. Transport chain order: wirelog wraps otelhttp wraps http.DefaultTransport.
 13. Writer: single goroutine; flush at batch size OR flush interval; multi-row INSERT with numbered placeholders only (never interpolate values); 10s timeout per insert; Close() drains, final-flushes, then closes the pool; goroutine must terminate.
-14. Path normalization: DefaultNormalizer replaces UUID segments, all-numeric segments, and long hex segments with `{id}`. Both raw path and normalized endpoint stored.
+14. Path normalization: DefaultNormalizer replaces UUID segments, all-numeric segments, and long hex segments with `{id}`. Column mapping: `path` = raw URL path, `endpoint` = normalized path. Host is not stored — the provider column serves that role (one base URL per provider client).
 15. NULL mapping in the writer: empty-string internal_ref, idempotency_key, and error → SQL NULL (not ''); status_code 0 → NULL; nil header/body/tags maps → NULL. Non-nullable text columns (consumer, operation, endpoint, path, method) keep '' defaults. Header maps and tags are json.Marshal-ed for their jsonb params.
 16. Redirects: http.Client resolves redirects ABOVE the transport, so each hop is its own RoundTrip and produces its own record. This is accepted and correct (each hop truly crossed the wire); do not add redirect deduplication.
 17. Thread safety: one HTTPClient is shared by many goroutines. The transport must hold no per-request mutable state; Config is read-only after mint. The race detector run is the enforcement.
@@ -183,7 +183,7 @@ create index if not exists idx_pal_resp_body_gin on provider_api_logs using gin 
 4. Drive traffic that exercises every outcome: balance check + successful transfer (with WithRef/WithOperation("payout.execute")/WithIdempotencyKey), a provider_error transfer, a timeout (client timeout 500ms against /slow), a network error (call a closed port), a /health call (must produce NO row), an /oauth/token call (row with NULL bodies).
 5. `wl.Close()`, then print a verification report by querying Postgres: row count per outcome, and a check that scans request_body/response_body text for the demo MSISDN "+237670000001" — MUST report zero occurrences. Exit non-zero if any assertion fails, so the demo doubles as an e2e test.
 
-README must document: `docker compose up -d` → `go run ./example/magma-demo` → expected output → example psql queries (by ref, failures only, body containment via `@>`).
+README must document: `docker compose up -d` → `go run ./example/magma-demo` → expected output → example psql queries (by ref, failures only, body containment via `@>`) → a warning that literal Config construction opts out of the shared mask defaults (NewConfig is the recommended path).
 
 ## Acceptance criteria / required tests
 
@@ -194,7 +194,7 @@ Table-driven where sensible; no test may require Docker except an optional `//go
 * context_test: all five helpers; tag MERGE across calls; consumer precedence chain (all three levels); operation overwrite (last wins).
 * transport_test (httptest): full record fields on success; ExcludePaths → zero records; SkipBodyPaths → metadata + sizes, nil bodies; sizes recorded with CaptureBodies=false; response body delivered INTACT to caller when larger than MaxBodyBytes (byte-for-byte compare); response/error returned identical to wrapped transport's; nil-receiver HTTPClient returns working plain client.
 * body_test: GetBody snapshot leaves original request body readable; GetBody==nil → size only; copyBody returns full bytes to caller + truncated capture.
-* writer_test: N records → ceil(N/batch) inserts (mock/pgxmock or a recording fake); flush on interval with partial batch; non-blocking enqueue with full buffer increments Dropped; Close drains and flushes remainder; insert error → batch dropped + one log line, no panic.
+* writer_test: N records → ceil(N/batch) inserts (in-package recording fake behind a small unexported insert interface — no new dependency); flush on interval with partial batch; non-blocking enqueue with full buffer increments Dropped; Close drains and flushes remainder; insert error → batch dropped + one log line + Dropped grows by len(batch), no panic.
 * normalize_test: UUIDs, numerics, long hex, mixed paths, already-clean paths.
 * defaults_test: NewConfig list intact; WithExtraMaskFields appends (never replaces); CaptureBodies defaults false.
 * `go vet ./...` clean; `quality.sh` passes; race detector clean (`go test -race ./...`).
