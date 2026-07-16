@@ -32,7 +32,7 @@ Work pauses for human review at the end of every stage.
 
 ## Stage 4 — example / docker-compose / README
 
-- [ ] `docker-compose.yml` — postgres:16, port 5439, user/pass/db all `wirelog`
+- [x] `docker-compose.yml` — postgres:16, port 5439, user/pass/db all `wirelog`
 - [ ] `example/magma-demo/main.go` — stub Magma server; drives success, provider_error, timeout, network, excluded `/health` (zero rows), skip-body `/oauth/token` (NULL bodies); post-run report queries Postgres; MSISDN "+237670000001" must appear ZERO times in stored bodies; exit non-zero on any failed assertion
 - [ ] `README.md` — quickstart (`docker compose up -d` → `go run ./example/magma-demo` → expected output), integration guide, config reference, psql examples (by ref, failures only, `@>` containment)
 
