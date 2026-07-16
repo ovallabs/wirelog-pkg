@@ -325,9 +325,7 @@ func TestTransportConcurrentUse(t *testing.T) {
 	client := &http.Client{Transport: tr}
 	var wg sync.WaitGroup
 	for range goroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range perG {
 				resp, err := client.Get(srv.URL + "/v1/things/42")
 				if err != nil {
@@ -337,7 +335,7 @@ func TestTransportConcurrentUse(t *testing.T) {
 				_, _ = io.ReadAll(resp.Body)
 				_ = resp.Body.Close()
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	if got := len(ch) + int(dropped.Load()); got != goroutines*perG {

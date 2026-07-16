@@ -3,7 +3,10 @@
 
 package wirelog
 
-import "context"
+import (
+	"context"
+	"maps"
+)
 
 // ctxKey keeps annotation keys unexported so callers can't collide with them.
 type ctxKey int
@@ -41,13 +44,9 @@ func WithIdempotencyKey(ctx context.Context, key string) context.Context {
 func WithTags(ctx context.Context, tags map[string]any) context.Context {
 	merged := make(map[string]any, len(tags))
 	if prev, ok := ctx.Value(ctxTags).(map[string]any); ok {
-		for k, v := range prev {
-			merged[k] = v
-		}
+		maps.Copy(merged, prev)
 	}
-	for k, v := range tags {
-		merged[k] = v
-	}
+	maps.Copy(merged, tags)
 	return context.WithValue(ctx, ctxTags, merged)
 }
 
