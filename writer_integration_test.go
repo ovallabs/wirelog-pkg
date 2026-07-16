@@ -49,9 +49,10 @@ func TestWriterAgainstRealPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	t.Cleanup(func() {
+	// deferred after pool.Close so it runs first (LIFO): the pool is still open
+	defer func() {
 		_, _ = pool.Exec(context.Background(), "delete from provider_api_logs where provider = $1", provider)
-	})
+	}()
 
 	var n int
 	if err := pool.QueryRow(ctx, "select count(*) from provider_api_logs where provider = $1", provider).Scan(&n); err != nil {
