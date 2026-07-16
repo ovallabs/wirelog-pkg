@@ -11,7 +11,7 @@ Work pauses for human review at the end of every stage.
 - [x] `defaults.go` + `defaults_test.go` — the one shared mask list; `WithExtraMaskFields` APPENDS, never replaces; CaptureBodies never defaults true
 - [x] `context.go` + `context_test.go` — `WithTags` MERGES across calls (not replace); consumer precedence ctx > Config > instance default (B10)
 - [x] `mask.go` + `mask_test.go` — replace a matched subtree's VALUE wholesale, no recursion into it (B6); header masking copies, never mutates the source map (B5); truncate to MaxBodyBytes BEFORE json.Unmarshal, `{"_raw":…,"_truncated":…}` wrap (B4); unmarshalable custom-Masker output remasks with the constant, never falls back to raw bytes (B1)
-- [ ] `outcome.go` + `outcome_test.go` — DeadlineExceeded wrapped inside `*url.Error` must still classify as timeout (B7)
+- [x] `outcome.go` + `outcome_test.go` — DeadlineExceeded wrapped inside `*url.Error` must still classify as timeout (B7)
 - [x] `normalize.go` + `normalize_test.go` — UUID / all-numeric / long-hex segments → `{id}`, everything else untouched (B14) — done before defaults.go, which needs DefaultNormalizer
 
 ## Stage 2 — transport / body / record
