@@ -125,15 +125,20 @@ func driveTraffic(ctx context.Context, client *http.Client, baseURL string) {
 		`"sender_first_name":"Ova","sender_last_name":"Payments","sender_address":"Douala"}`, msisdn)
 	do(client, mustRequest(payCtx, http.MethodPost, baseURL+"/v1/transfers", payload))
 
-	// 3. provider rejection → provider_error
-	failReq := mustRequest(payCtx, http.MethodPost, baseURL+"/v1/transfers", payload)
+	// 3. provider rejection → provider_error, its own ref so row counts stay 1:1
+	failCtx := wirelog.WithRef(ctx, "PYT-2026-0002")
+	failCtx = wirelog.WithOperation(failCtx, "payout.execute")
+	failCtx = wirelog.WithIdempotencyKey(failCtx, "idem-PYT-2026-0002")
+	failReq := mustRequest(failCtx, http.MethodPost, baseURL+"/v1/transfers", payload)
 	failReq.Header.Set("X-Demo-Fail", "provider")
 	do(client, failReq)
 
-	// 4. client timeout against /slow → timeout
-	slowClient := *client
-	slowClient.Timeout = 500 * time.Millisecond
-	do(&slowClient, mustRequest(wirelog.WithOperation(ctx, "slow.call"), http.MethodGet, baseURL+"/slow", ""))
+	// 4. 500ms request deadline against /slow → timeout. A context deadline,
+	// not http.Client.Timeout: the latter cancels via a timer that can reach
+	// the transport as a bare "request canceled" instead of DeadlineExceeded.
+	slowCtx, cancel := context.WithTimeout(wirelog.WithOperation(ctx, "slow.call"), 500*time.Millisecond)
+	defer cancel()
+	do(client, mustRequest(slowCtx, http.MethodGet, baseURL+"/slow", ""))
 
 	// 5. closed port → network
 	do(client, mustRequest(ctx, http.MethodGet, "http://"+closedAddr(), ""))

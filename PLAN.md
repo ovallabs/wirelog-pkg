@@ -38,10 +38,10 @@ Work pauses for human review at the end of every stage.
 
 ## Stage 5 — verification
 
-- [ ] `docker compose up -d` + `go run ./example/magma-demo` passes all assertions (row count per outcome, zero unmasked MSISDN)
-- [ ] `./quality.sh` clean
-- [ ] `go test -race ./...` clean (B17 enforcement)
-- [ ] `go vet ./...` clean
+- [x] `docker compose up -d` + `go run ./example/magma-demo` passes all assertions (row count per outcome, zero unmasked MSISDN)
+- [x] `./quality.sh` clean
+- [x] `go test -race ./...` clean (B17 enforcement)
+- [x] `go vet ./...` clean
 
 ## Open questions — RESOLVED 2026-07-16, amended into the FRD
 
