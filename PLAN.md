@@ -28,7 +28,7 @@ Work pauses for human review at the end of every stage.
 - [x] `writer.go` + `writer_test.go` — single goroutine, flush at batch size OR interval, Close drains → final flush → pool close → goroutine exit (B13); NULL mapping for ''/0/nil (B15); numbered placeholders only, 10s insert timeout (B13); insert failure adds len(batch) to Dropped (B2, Q4 ruling); tests use in-package recording fake, no new dependency (Q8 ruling); landmark analogy fragment on the drain-on-close line; drain uses a stop signal (record channel never closed → late enqueue drops, never panics); jsonb params passed as strings with ::jsonb casts
 - [x] `options.go` + `options_test.go` — instance option defaults: buffer 2048, batch 100, flush 2s, no-op logger, auto-migrate off
 - [x] `wirelog.go` + `wirelog_test.go` — HTTPClient nil-receiver-safe, degrades to plain otelhttp client (B11); chain order wirelog → otelhttp → http.DefaultTransport (B12); non-blocking enqueue increments Dropped (B2)
-- [ ] optional `//go:build integration` writer test against real Postgres (only test allowed to need Docker)
+- [x] optional `//go:build integration` writer test against real Postgres (only test allowed to need Docker)
 
 ## Stage 4 — example / docker-compose / README
 
