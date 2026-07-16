@@ -12,7 +12,7 @@ Work pauses for human review at the end of every stage.
 - [ ] `context.go` + `context_test.go` — `WithTags` MERGES across calls (not replace); consumer precedence ctx > Config > instance default (B10)
 - [ ] `mask.go` + `mask_test.go` — replace a matched subtree's VALUE wholesale, no recursion into it (B6); header masking copies, never mutates the source map (B5); truncate to MaxBodyBytes BEFORE json.Unmarshal, `{"_raw":…,"_truncated":…}` wrap (B4)
 - [ ] `outcome.go` + `outcome_test.go` — DeadlineExceeded wrapped inside `*url.Error` must still classify as timeout (B7)
-- [ ] `normalize.go` + `normalize_test.go` — UUID / all-numeric / long-hex segments → `{id}`, everything else untouched (B14)
+- [x] `normalize.go` + `normalize_test.go` — UUID / all-numeric / long-hex segments → `{id}`, everything else untouched (B14) — done before defaults.go, which needs DefaultNormalizer
 
 ## Stage 2 — transport / body / record
 
