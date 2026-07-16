@@ -9,7 +9,7 @@ Work pauses for human review at the end of every stage.
 - [x] `go.mod` + `quality.sh` scaffolding — module `github.com/ovallabs/wirelog`, go 1.22+; quality.sh: gofmt · vet · golangci-lint (if present) · test -cover
 - [x] `config.go` + `config_test.go` — types only (Config, ConfigOption, Masker, Operation); Config must be safe as read-only shared state after mint (B17)
 - [x] `defaults.go` + `defaults_test.go` — the one shared mask list; `WithExtraMaskFields` APPENDS, never replaces; CaptureBodies never defaults true
-- [ ] `context.go` + `context_test.go` — `WithTags` MERGES across calls (not replace); consumer precedence ctx > Config > instance default (B10)
+- [x] `context.go` + `context_test.go` — `WithTags` MERGES across calls (not replace); consumer precedence ctx > Config > instance default (B10)
 - [ ] `mask.go` + `mask_test.go` — replace a matched subtree's VALUE wholesale, no recursion into it (B6); header masking copies, never mutates the source map (B5); truncate to MaxBodyBytes BEFORE json.Unmarshal, `{"_raw":…,"_truncated":…}` wrap (B4)
 - [ ] `outcome.go` + `outcome_test.go` — DeadlineExceeded wrapped inside `*url.Error` must still classify as timeout (B7)
 - [x] `normalize.go` + `normalize_test.go` — UUID / all-numeric / long-hex segments → `{id}`, everything else untouched (B14) — done before defaults.go, which needs DefaultNormalizer
