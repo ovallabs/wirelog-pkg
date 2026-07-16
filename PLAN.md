@@ -19,7 +19,7 @@ Work pauses for human review at the end of every stage.
 
 - [x] `body.go` + `body_test.go` — snapshot via `req.GetBody` ONLY, never consume `req.Body`; caller receives the complete body byte-for-byte while wirelog keeps a truncated copy (B3); landmark analogy fragment on the body swap line; a mid-stream read error is replayed to the caller after the buffered bytes
 - [x] `record.go` + `record_test.go` — sizes always recorded even with CaptureBodies=false, response size from actual bytes read w/ Content-Length fallback (B9); consumer precedence resolution (B10); also holds `capture` (minted read-only state, B17) with Q6 normalization at mint
-- [ ] `transport.go` + `transport_test.go` — return the wrapped transport's response/error bit-for-bit, capture can never fail the call (B2); ExcludePaths short-circuit before ANY work incl. timing (B8); mask before enqueue (B1); no per-request mutable state on the transport (B17); landmark analogy fragment on the non-blocking enqueue line
+- [x] `transport.go` + `transport_test.go` — return the wrapped transport's response/error bit-for-bit, capture can never fail the call (B2); ExcludePaths short-circuit before ANY work incl. timing (B8); mask before enqueue (B1); no per-request mutable state on the transport (B17); landmark analogy fragment on the non-blocking enqueue line; nil-receiver HTTPClient test deferred to `wirelog_test.go` (Stage 3, where HTTPClient exists)
 
 ## Stage 3 — writer / migrate / wirelog
 
