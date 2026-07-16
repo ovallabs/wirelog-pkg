@@ -12,19 +12,20 @@ Work pauses for human review at the end of every stage.
 - [x] `context.go` + `context_test.go` — `WithTags` MERGES across calls (not replace); consumer precedence ctx > Config > instance default (B10)
 - [x] `mask.go` + `mask_test.go` — replace a matched subtree's VALUE wholesale, no recursion into it (B6); header masking copies, never mutates the source map (B5); truncate to MaxBodyBytes BEFORE json.Unmarshal, `{"_raw":…,"_truncated":…}` wrap (B4); unmarshalable custom-Masker output remasks with the constant, never falls back to raw bytes (B1)
 - [x] `outcome.go` + `outcome_test.go` — DeadlineExceeded wrapped inside `*url.Error` must still classify as timeout (B7)
+- [x] `doc.go` + analogy anchor lines on every file — mail-room documentation style per CLAUDE.md amendment (2026-07-16)
 - [x] `normalize.go` + `normalize_test.go` — UUID / all-numeric / long-hex segments → `{id}`, everything else untouched (B14) — done before defaults.go, which needs DefaultNormalizer
 
 ## Stage 2 — transport / body / record
 
-- [ ] `body.go` + `body_test.go` — snapshot via `req.GetBody` ONLY, never consume `req.Body`; caller receives the complete body byte-for-byte while wirelog keeps a truncated copy (B3)
+- [ ] `body.go` + `body_test.go` — snapshot via `req.GetBody` ONLY, never consume `req.Body`; caller receives the complete body byte-for-byte while wirelog keeps a truncated copy (B3); landmark analogy fragment on the body swap line
 - [ ] `record.go` + `record_test.go` — sizes always recorded even with CaptureBodies=false, response size from actual bytes read w/ Content-Length fallback (B9); consumer precedence resolution (B10)
-- [ ] `transport.go` + `transport_test.go` — return the wrapped transport's response/error bit-for-bit, capture can never fail the call (B2); ExcludePaths short-circuit before ANY work incl. timing (B8); mask before enqueue (B1); no per-request mutable state on the transport (B17)
+- [ ] `transport.go` + `transport_test.go` — return the wrapped transport's response/error bit-for-bit, capture can never fail the call (B2); ExcludePaths short-circuit before ANY work incl. timing (B8); mask before enqueue (B1); no per-request mutable state on the transport (B17); landmark analogy fragment on the non-blocking enqueue line
 
 ## Stage 3 — writer / migrate / wirelog
 
 - [ ] `logger.go` (covered via writer tests) — insert failures produce exactly one Logger line and never propagate (B2); default is silent no-op
 - [ ] `migrate.go` + `migrate_test.go` — FRD DDL embedded verbatim; auto-migrate default false
-- [ ] `writer.go` + `writer_test.go` — single goroutine, flush at batch size OR interval, Close drains → final flush → pool close → goroutine exit (B13); NULL mapping for ''/0/nil (B15); numbered placeholders only, 10s insert timeout (B13); insert failure adds len(batch) to Dropped (B2, Q4 ruling); tests use in-package recording fake, no new dependency (Q8 ruling)
+- [ ] `writer.go` + `writer_test.go` — single goroutine, flush at batch size OR interval, Close drains → final flush → pool close → goroutine exit (B13); NULL mapping for ''/0/nil (B15); numbered placeholders only, 10s insert timeout (B13); insert failure adds len(batch) to Dropped (B2, Q4 ruling); tests use in-package recording fake, no new dependency (Q8 ruling); landmark analogy fragment on the drain-on-close line
 - [ ] `options.go` + `options_test.go` — instance option defaults: buffer 2048, batch 100, flush 2s, no-op logger, auto-migrate off
 - [ ] `wirelog.go` + `wirelog_test.go` — HTTPClient nil-receiver-safe, degrades to plain otelhttp client (B11); chain order wirelog → otelhttp → http.DefaultTransport (B12); non-blocking enqueue increments Dropped (B2)
 - [ ] optional `//go:build integration` writer test against real Postgres (only test allowed to need Docker)

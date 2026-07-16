@@ -1,3 +1,6 @@
+// defaults.go — the mail room's house rules: NewConfig and the shared mask
+// defaults every provider Config starts from.
+
 package wirelog
 
 // defaultMaxBodyBytes caps captured body bytes unless overridden.

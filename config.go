@@ -1,6 +1,6 @@
-// Package wirelog captures outbound provider HTTP calls at the
-// http.RoundTripper level, masks sensitive data in-process, and persists
-// records asynchronously to Postgres.
+// config.go — a provider's standing instruction sheet: the per-provider
+// capture configuration types, read-only once a transport is minted.
+
 package wirelog
 
 // Operation labels the business action behind a provider call, e.g. "payout.execute".

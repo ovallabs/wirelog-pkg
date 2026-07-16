@@ -1,3 +1,6 @@
+// outcome.go — the delivery stamp: classifies each call's result as
+// success, provider_error, timeout or network.
+
 package wirelog
 
 import (

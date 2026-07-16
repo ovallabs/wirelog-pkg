@@ -1,3 +1,6 @@
+// context.go — notes written on the envelope: context annotations callers
+// attach before sending so each record carries business meaning.
+
 package wirelog
 
 import "context"

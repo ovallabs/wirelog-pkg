@@ -1,3 +1,6 @@
+// mask.go — the redaction desk: header and recursive JSON body masking,
+// applied to the captured copy and never to the original.
+
 package wirelog
 
 import (

@@ -1,3 +1,6 @@
+// normalize.go — the filing label: DefaultNormalizer collapses per-entity
+// path segments into one endpoint.
+
 package wirelog
 
 import "strings"
