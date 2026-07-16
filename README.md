@@ -74,6 +74,12 @@ resp, err := client.Do(req)
 enqueue drops plus failed-insert batches. Any logger with
 `Printf(format string, args ...any)` satisfies `wirelog.Logger`.
 
+Prefer `context.WithTimeout` on the request over `http.Client.Timeout` for
+per-call deadlines. The client's timer cancels the request in a way that can
+reach the transport as a bare "request canceled" error, which classifies as
+`network`; a context deadline always reaches wirelog as
+`context.DeadlineExceeded` and classifies as `timeout`.
+
 > **Warning:** always build configs with `wirelog.NewConfig`. A literal
 > `wirelog.Config{...}` opts out of the shared mask defaults — its
 > `MaskFields` stays exactly what you set, which may be nothing.
