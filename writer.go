@@ -35,6 +35,8 @@ type writer struct {
 	done     chan struct{}
 }
 
+// newWriter builds a writer over the record channel; the caller starts run in
+// its own goroutine.
 func newWriter(ch <-chan record, ins inserter, batch int, interval time.Duration, log Logger, dropped *atomic.Int64) *writer {
 	return &writer{
 		ch: ch, ins: ins, batch: batch, interval: interval, log: log, dropped: dropped,
@@ -105,9 +107,10 @@ func (w *writer) closeAndDrain() {
 // pgInserter delivers batches to Postgres with one multi-row INSERT.
 type pgInserter struct{ pool *pgxpool.Pool }
 
-func (p *pgInserter) insertBatch(ctx context.Context, recs []record) error {
-	sql, args := buildInsert(recs)
-	_, err := p.pool.Exec(ctx, sql, args...)
+// insertBatch executes the rendered multi-row INSERT for one batch.
+func (p *pgInserter) insertBatch(ctx context.Context, records []record) error {
+	insertSQL, args := buildInsert(records)
+	_, err := p.pool.Exec(ctx, insertSQL, args...)
 	return err
 }
 
@@ -125,25 +128,25 @@ var jsonbCols = map[int]bool{14: true, 15: true, 16: true, 17: true, 19: true}
 
 // buildInsert renders one multi-row INSERT using numbered placeholders only;
 // record values are never interpolated into the SQL (B13).
-func buildInsert(recs []record) (string, []any) {
-	var b strings.Builder
-	b.WriteString("insert into provider_api_logs (" + insertColumns + ") values ")
-	args := make([]any, 0, len(recs)*colCount)
-	for i, rec := range recs {
+func buildInsert(records []record) (string, []any) {
+	var query strings.Builder
+	query.WriteString("insert into provider_api_logs (" + insertColumns + ") values ")
+	args := make([]any, 0, len(records)*colCount)
+	for i, rec := range records {
 		if i > 0 {
-			b.WriteByte(',')
+			query.WriteByte(',')
 		}
-		b.WriteByte('(')
+		query.WriteByte('(')
 		for j := 1; j <= colCount; j++ {
 			if j > 1 {
-				b.WriteByte(',')
+				query.WriteByte(',')
 			}
-			fmt.Fprintf(&b, "$%d", i*colCount+j)
+			fmt.Fprintf(&query, "$%d", i*colCount+j)
 			if jsonbCols[j] {
-				b.WriteString("::jsonb")
+				query.WriteString("::jsonb")
 			}
 		}
-		b.WriteByte(')')
+		query.WriteByte(')')
 		args = append(args,
 			rec.provider, rec.consumer, rec.operation, rec.endpoint, rec.path, rec.method,
 			nullInt(rec.statusCode), rec.outcome, rec.latencyMS, rec.requestSize, rec.responseSize,
@@ -153,7 +156,7 @@ func buildInsert(recs []record) (string, []any) {
 			nullText(rec.callErr), jsonTags(rec.tags),
 		)
 	}
-	return b.String(), args
+	return query.String(), args
 }
 
 // nullText maps the empty string to SQL NULL for nullable text columns (B15).
@@ -182,26 +185,26 @@ func jsonBody(b []byte) any {
 }
 
 // jsonHeaders marshals a header map for its jsonb param; nil means NULL (B15).
-func jsonHeaders(h map[string][]string) any {
-	if h == nil {
+func jsonHeaders(headers map[string][]string) any {
+	if headers == nil {
 		return nil
 	}
-	b, err := json.Marshal(h)
+	encoded, err := json.Marshal(headers)
 	if err != nil {
 		return nil
 	}
-	return string(b)
+	return string(encoded)
 }
 
 // jsonTags marshals tags for their jsonb param; nil maps and unmarshalable
 // values (a jsonb column must receive valid JSON or NULL, B4) become NULL.
-func jsonTags(t map[string]any) any {
-	if t == nil {
+func jsonTags(tags map[string]any) any {
+	if tags == nil {
 		return nil
 	}
-	b, err := json.Marshal(t)
+	encoded, err := json.Marshal(tags)
 	if err != nil {
 		return nil
 	}
-	return string(b)
+	return string(encoded)
 }

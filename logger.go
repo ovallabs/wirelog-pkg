@@ -11,4 +11,5 @@ type Logger interface {
 // nopLogger is the default: silent (B2).
 type nopLogger struct{}
 
+// Printf discards the line; the default logger never emits anything.
 func (nopLogger) Printf(string, ...any) {}

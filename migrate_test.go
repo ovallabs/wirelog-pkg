@@ -9,16 +9,21 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// recordingExecer captures executed SQL so migration is testable without a
+// database (Q8 pattern).
 type recordingExecer struct {
 	sqls []string
 	err  error
 }
 
+// Exec records the statement and returns the configured error.
 func (r *recordingExecer) Exec(_ context.Context, sql string, _ ...any) (pgconn.CommandTag, error) {
 	r.sqls = append(r.sqls, sql)
 	return pgconn.CommandTag{}, r.err
 }
 
+// TestMigrateExecutesEmbeddedDDLOnce checks migrate runs the embedded DDL in
+// a single Exec call.
 func TestMigrateExecutesEmbeddedDDLOnce(t *testing.T) {
 	db := &recordingExecer{}
 	if err := migrate(context.Background(), db); err != nil {
@@ -29,6 +34,8 @@ func TestMigrateExecutesEmbeddedDDLOnce(t *testing.T) {
 	}
 }
 
+// TestMigratePropagatesError checks a failed DDL exec surfaces to the caller
+// so New can abort.
 func TestMigratePropagatesError(t *testing.T) {
 	sentinel := errors.New("permission denied")
 	db := &recordingExecer{err: sentinel}
@@ -37,6 +44,8 @@ func TestMigratePropagatesError(t *testing.T) {
 	}
 }
 
+// TestSchemaDDLMatchesFRD asserts every column and index of the FRD schema
+// appears verbatim in the embedded DDL.
 func TestSchemaDDLMatchesFRD(t *testing.T) {
 	required := []string{
 		"create table if not exists provider_api_logs",

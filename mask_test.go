@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// TestMaskHeadersBuiltinAndCustomDeny checks the built-in denylist plus
+// Config.DenyHeaders extras all mask, while other headers pass through.
 func TestMaskHeadersBuiltinAndCustomDeny(t *testing.T) {
 	deny := denyHeaderSet([]string{"X-Custom-Secret"})
 	src := http.Header{
@@ -30,6 +32,8 @@ func TestMaskHeadersBuiltinAndCustomDeny(t *testing.T) {
 	}
 }
 
+// TestMaskHeadersDoesNotMutateSource enforces B5: masking copies, and the
+// copy shares no value slices with the source map.
 func TestMaskHeadersDoesNotMutateSource(t *testing.T) {
 	src := http.Header{"Authorization": {"Bearer abc"}, "Accept": {"*/*"}}
 	_ = maskHeaders(src, denyHeaderSet(nil))
@@ -43,6 +47,7 @@ func TestMaskHeadersDoesNotMutateSource(t *testing.T) {
 	}
 }
 
+// TestMaskHeadersCaseInsensitive confirms deny matching ignores header casing.
 func TestMaskHeadersCaseInsensitive(t *testing.T) {
 	src := http.Header{}
 	src["AUTHORIZATION"] = []string{"Bearer abc"} // bypass canonicalization
@@ -53,6 +58,8 @@ func TestMaskHeadersCaseInsensitive(t *testing.T) {
 	}
 }
 
+// TestMaskHeadersEmptyIsNil checks empty input maps to nil so the jsonb
+// column stores NULL (B15).
 func TestMaskHeadersEmptyIsNil(t *testing.T) {
 	if got := maskHeaders(nil, denyHeaderSet(nil)); got != nil {
 		t.Errorf("maskHeaders(nil) = %v, want nil", got)
@@ -62,6 +69,8 @@ func TestMaskHeadersEmptyIsNil(t *testing.T) {
 	}
 }
 
+// maskJSON runs maskBody with the default mask list and decodes the result,
+// failing the test if the output is not valid JSON.
 func maskJSON(t *testing.T, body string, maxBytes int, m Masker) map[string]any {
 	t.Helper()
 	out := maskBody([]byte(body), maxBytes, maskFieldSet(defaultMaskFields), m)
@@ -72,6 +81,8 @@ func maskJSON(t *testing.T, body string, maxBytes int, m Masker) map[string]any 
 	return v
 }
 
+// TestMaskBodyNestedObjectsAndArrays checks masking reaches fields nested in
+// objects and arrays while leaving unmatched siblings untouched.
 func TestMaskBodyNestedObjectsAndArrays(t *testing.T) {
 	body := `{
 		"amount": 100,
@@ -96,6 +107,8 @@ func TestMaskBodyNestedObjectsAndArrays(t *testing.T) {
 	}
 }
 
+// TestMaskBodyCaseInsensitiveKeys confirms body keys match the mask list
+// regardless of casing (B6).
 func TestMaskBodyCaseInsensitiveKeys(t *testing.T) {
 	v := maskJSON(t, `{"MSISDN": "+237670000001", "Account_Number": "01234"}`, 16384, nil)
 	if v["MSISDN"] != maskedValue || v["Account_Number"] != maskedValue {
@@ -103,6 +116,8 @@ func TestMaskBodyCaseInsensitiveKeys(t *testing.T) {
 	}
 }
 
+// TestMaskBodyMatchedSubtreeReplacedWholesale enforces B6: a matched key's
+// entire value is replaced, with no recursion into the matched subtree.
 func TestMaskBodyMatchedSubtreeReplacedWholesale(t *testing.T) {
 	body := `{"token": {"access": "a", "refresh": {"deep": "b"}}, "keep": {"token": "x"}}`
 	v := maskJSON(t, body, 16384, nil)
@@ -114,6 +129,8 @@ func TestMaskBodyMatchedSubtreeReplacedWholesale(t *testing.T) {
 	}
 }
 
+// TestMaskBodyCustomMasker checks a custom Masker receives the lowercased
+// field name and its return value replaces the field.
 func TestMaskBodyCustomMasker(t *testing.T) {
 	var seenField string
 	m := func(field string, value any) any {
@@ -133,6 +150,8 @@ func TestMaskBodyCustomMasker(t *testing.T) {
 	}
 }
 
+// TestMaskBodyNonJSONWrap checks non-JSON bodies wrap as {"_raw": ...}
+// without a spurious truncation marker (B4).
 func TestMaskBodyNonJSONWrap(t *testing.T) {
 	out := maskBody([]byte("plain text, not json"), 16384, maskFieldSet(nil), nil)
 	var v map[string]any
@@ -147,6 +166,8 @@ func TestMaskBodyNonJSONWrap(t *testing.T) {
 	}
 }
 
+// TestMaskBodyTruncationMarker checks bytes are cut BEFORE parsing and the
+// wrap carries _truncated plus exactly the first maxBytes bytes (B4).
 func TestMaskBodyTruncationMarker(t *testing.T) {
 	body := `{"data": "` + strings.Repeat("x", 100) + `"}`
 	out := maskBody([]byte(body), 20, maskFieldSet(nil), nil)
@@ -162,6 +183,8 @@ func TestMaskBodyTruncationMarker(t *testing.T) {
 	}
 }
 
+// TestMaskBodyEmptyIsNil checks empty bodies produce nil so the jsonb column
+// stores NULL (B4/B15).
 func TestMaskBodyEmptyIsNil(t *testing.T) {
 	if out := maskBody(nil, 16384, maskFieldSet(nil), nil); out != nil {
 		t.Errorf("maskBody(nil) = %s, want nil", out)
@@ -171,6 +194,8 @@ func TestMaskBodyEmptyIsNil(t *testing.T) {
 	}
 }
 
+// TestMaskBodyUnmarshalableMaskerResultRemasks checks a Masker returning an
+// unmarshalable value falls back to constant masking, never raw bytes (B1).
 func TestMaskBodyUnmarshalableMaskerResultRemasks(t *testing.T) {
 	m := func(field string, value any) any { return make(chan int) }
 	out := maskBody([]byte(`{"msisdn": "+237670000001"}`), 16384, maskFieldSet(defaultMaskFields), m)

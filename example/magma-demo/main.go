@@ -24,6 +24,7 @@ const (
 	msisdn = "+237670000001"
 )
 
+// main reports the run's verdict and sets the exit code.
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "magma-demo: FAIL:", err)
@@ -32,6 +33,8 @@ func main() {
 	fmt.Println("magma-demo: all assertions passed")
 }
 
+// run wires wirelog to the stub server, drives the traffic, and verifies the
+// captured rows.
 func run() error {
 	ctx := context.Background()
 
@@ -103,6 +106,7 @@ func newStubMagma() *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
+// writeJSON writes v as a JSON response with the given status code.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -151,6 +155,7 @@ func driveTraffic(ctx context.Context, client *http.Client, baseURL string) {
 		`{"client_id":"magma-demo","client_secret":"hunter2"}`))
 }
 
+// mustRequest builds a request with demo auth headers, panicking on bad input.
 func mustRequest(ctx context.Context, method, url, body string) *http.Request {
 	var r *http.Request
 	var err error
@@ -169,6 +174,8 @@ func mustRequest(ctx context.Context, method, url, body string) *http.Request {
 	return r
 }
 
+// do executes one call and prints its status or error; failures are expected
+// for the timeout and network scenarios.
 func do(client *http.Client, req *http.Request) {
 	resp, err := client.Do(req)
 	if err != nil {

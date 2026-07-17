@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// TestNewCaptureNormalizesLiteralConfig checks the Q6 mint rules: defaults
+// for MaxBodyBytes and PathNormalizer, empty MaskFields left empty.
 func TestNewCaptureNormalizesLiteralConfig(t *testing.T) {
 	c := newCapture(Config{Provider: "magma"}, "")
 	if c.cfg.MaxBodyBytes != 16384 {
@@ -29,6 +31,8 @@ func TestNewCaptureNormalizesLiteralConfig(t *testing.T) {
 	}
 }
 
+// TestNewCaptureDoesNotMutateCallerConfig checks mint normalization works on
+// a copy and never writes back to the caller's Config.
 func TestNewCaptureDoesNotMutateCallerConfig(t *testing.T) {
 	cfg := Config{Provider: "magma"}
 	_ = newCapture(cfg, "")
@@ -37,6 +41,8 @@ func TestNewCaptureDoesNotMutateCallerConfig(t *testing.T) {
 	}
 }
 
+// TestBuildRecordSuccessFields verifies the full field mapping of a
+// successful exchange, including masked headers and bodies (B1).
 func TestBuildRecordSuccessFields(t *testing.T) {
 	c := newCapture(NewConfig("magma", WithCaptureBodies(true)), "inst")
 	ctx := WithRef(context.Background(), "ref-9")
@@ -112,6 +118,8 @@ func TestBuildRecordSuccessFields(t *testing.T) {
 	}
 }
 
+// TestBuildRecordErrorPath checks a nil-response exchange records the error
+// text, zero status, and no response fields.
 func TestBuildRecordErrorPath(t *testing.T) {
 	c := newCapture(NewConfig("magma"), "")
 	req, err := http.NewRequest(http.MethodGet, "http://magma/partner/balance", nil)
@@ -134,6 +142,8 @@ func TestBuildRecordErrorPath(t *testing.T) {
 	}
 }
 
+// TestBuildRecordConsumerPrecedence checks B10 resolution through
+// buildRecord at all three levels.
 func TestBuildRecordConsumerPrecedence(t *testing.T) {
 	req := func(ctx context.Context) *http.Request {
 		r, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://magma/x", nil)
@@ -164,6 +174,8 @@ func TestBuildRecordConsumerPrecedence(t *testing.T) {
 	}
 }
 
+// TestRequestSizeFallbacks checks the B9 chain for requests: actual snapshot
+// bytes, then ContentLength, then 0.
 func TestRequestSizeFallbacks(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "http://x", nil)
 	req.ContentLength = 42
@@ -179,6 +191,8 @@ func TestRequestSizeFallbacks(t *testing.T) {
 	}
 }
 
+// TestResponseSizeFallbacks checks the B9 chain for responses: actual bytes,
+// then Content-Length, then 0 for chunked or missing responses.
 func TestResponseSizeFallbacks(t *testing.T) {
 	resp := &http.Response{ContentLength: 99}
 	if got := responseSize(resp, []byte("abc")); got != 3 {

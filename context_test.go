@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// TestContextHelpers round-trips all five annotation helpers and confirms a
+// bare context yields zero values.
 func TestContextHelpers(t *testing.T) {
 	ctx := context.Background()
 	if refFrom(ctx) != "" || operationFrom(ctx) != "" || consumerFrom(ctx) != "" ||
@@ -36,6 +38,8 @@ func TestContextHelpers(t *testing.T) {
 	}
 }
 
+// TestWithTagsMergesAcrossCalls proves tags shallow-merge with last write
+// winning per key.
 func TestWithTagsMergesAcrossCalls(t *testing.T) {
 	ctx := WithTags(context.Background(), map[string]any{"a": 1, "b": 1})
 	ctx = WithTags(ctx, map[string]any{"b": 2, "c": 3})
@@ -45,6 +49,8 @@ func TestWithTagsMergesAcrossCalls(t *testing.T) {
 	}
 }
 
+// TestWithTagsDoesNotMutateParent guards the copy-on-write merge: children
+// and siblings never mutate each other's tag maps.
 func TestWithTagsDoesNotMutateParent(t *testing.T) {
 	parent := WithTags(context.Background(), map[string]any{"a": 1})
 	_ = WithTags(parent, map[string]any{"a": 2, "b": 2})
@@ -58,6 +64,8 @@ func TestWithTagsDoesNotMutateParent(t *testing.T) {
 	}
 }
 
+// TestOperationOverwriteLastWins confirms a later WithOperation replaces an
+// earlier one.
 func TestOperationOverwriteLastWins(t *testing.T) {
 	ctx := WithOperation(context.Background(), "payout.init")
 	ctx = WithOperation(ctx, "payout.execute")
@@ -66,6 +74,8 @@ func TestOperationOverwriteLastWins(t *testing.T) {
 	}
 }
 
+// TestResolveConsumerPrecedence exercises the full B10 chain: ctx beats
+// Config beats the instance default.
 func TestResolveConsumerPrecedence(t *testing.T) {
 	ctxWith := WithConsumer(context.Background(), "ctx-consumer")
 	tests := []struct {

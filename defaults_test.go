@@ -13,6 +13,8 @@ var wantMaskDefaults = []string{
 	"receiver_account", "receiver_account_number", "sender_phone_number",
 }
 
+// TestNewConfigDefaults verifies every default NewConfig applies, including
+// the full shared mask list and CaptureBodies staying false.
 func TestNewConfigDefaults(t *testing.T) {
 	cfg := NewConfig("magma")
 	if cfg.Provider != "magma" {
@@ -41,6 +43,8 @@ func TestNewConfigDefaults(t *testing.T) {
 	}
 }
 
+// TestWithExtraMaskFieldsAppends proves the option appends to the shared
+// mask list and never replaces it.
 func TestWithExtraMaskFieldsAppends(t *testing.T) {
 	cfg := NewConfig("magma", WithExtraMaskFields("sender_first_name", "sender_last_name"))
 	want := append(append([]string(nil), wantMaskDefaults...), "sender_first_name", "sender_last_name")
@@ -49,6 +53,8 @@ func TestWithExtraMaskFieldsAppends(t *testing.T) {
 	}
 }
 
+// TestConfigsDoNotShareDefaultBacking guards against two minted configs (or
+// the defaults themselves) sharing slice backing arrays.
 func TestConfigsDoNotShareDefaultBacking(t *testing.T) {
 	a := NewConfig("a", WithExtraMaskFields("x"))
 	b := NewConfig("b")
@@ -61,6 +67,8 @@ func TestConfigsDoNotShareDefaultBacking(t *testing.T) {
 	}
 }
 
+// TestRemainingConfigOptions covers the config options not exercised above:
+// capture toggle, path appends, and the custom Masker.
 func TestRemainingConfigOptions(t *testing.T) {
 	m := func(field string, value any) any { return "X" }
 	cfg := NewConfig("magma",

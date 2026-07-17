@@ -50,29 +50,34 @@ func WithTags(ctx context.Context, tags map[string]any) context.Context {
 	return context.WithValue(ctx, ctxTags, merged)
 }
 
+// refFrom returns the internal reference annotated on ctx, or "" when unset.
 func refFrom(ctx context.Context) string {
-	s, _ := ctx.Value(ctxRef).(string)
-	return s
+	ref, _ := ctx.Value(ctxRef).(string)
+	return ref
 }
 
+// operationFrom returns the operation annotated on ctx, or "" when unset.
 func operationFrom(ctx context.Context) Operation {
-	op, _ := ctx.Value(ctxOperation).(Operation)
-	return op
+	operation, _ := ctx.Value(ctxOperation).(Operation)
+	return operation
 }
 
+// consumerFrom returns the consumer annotated on ctx, or "" when unset.
 func consumerFrom(ctx context.Context) string {
-	s, _ := ctx.Value(ctxConsumer).(string)
-	return s
+	consumer, _ := ctx.Value(ctxConsumer).(string)
+	return consumer
 }
 
+// idempotencyKeyFrom returns the idempotency key annotated on ctx, or "" when unset.
 func idempotencyKeyFrom(ctx context.Context) string {
-	s, _ := ctx.Value(ctxIdemKey).(string)
-	return s
+	key, _ := ctx.Value(ctxIdemKey).(string)
+	return key
 }
 
+// tagsFrom returns the merged tags annotated on ctx, or nil when unset.
 func tagsFrom(ctx context.Context) map[string]any {
-	m, _ := ctx.Value(ctxTags).(map[string]any)
-	return m
+	tags, _ := ctx.Value(ctxTags).(map[string]any)
+	return tags
 }
 
 // resolveConsumer applies B10 precedence: WithConsumer(ctx) > Config.Consumer > instance default.

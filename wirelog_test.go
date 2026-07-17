@@ -10,6 +10,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
+// TestHTTPClientNilReceiverReturnsPlainClient enforces B11: a nil *Wirelog
+// still mints a working plain otelhttp client.
 func TestHTTPClientNilReceiverReturnsPlainClient(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
@@ -35,6 +37,8 @@ func TestHTTPClientNilReceiverReturnsPlainClient(t *testing.T) {
 	}
 }
 
+// TestHTTPClientChainOrder verifies B12 by type assertion: wirelog wraps
+// otelhttp wraps http.DefaultTransport.
 func TestHTTPClientChainOrder(t *testing.T) {
 	wl := &Wirelog{ch: make(chan record, 1), opts: defaultOptions()}
 	client := wl.HTTPClient(NewConfig("magma"))
@@ -47,6 +51,8 @@ func TestHTTPClientChainOrder(t *testing.T) {
 	}
 }
 
+// TestHTTPClientNormalizesLiteralConfigAtMint checks the Q6 rules apply when
+// a literal Config reaches HTTPClient (B11).
 func TestHTTPClientNormalizesLiteralConfigAtMint(t *testing.T) {
 	wl := &Wirelog{ch: make(chan record, 1), opts: defaultOptions()}
 	client := wl.HTTPClient(Config{Provider: "magma"})
@@ -59,6 +65,8 @@ func TestHTTPClientNormalizesLiteralConfigAtMint(t *testing.T) {
 	}
 }
 
+// TestHTTPClientEnqueueIncrementsDroppedWhenFull enforces B2 through the
+// public API: full-buffer drops count in Dropped and calls never fail.
 func TestHTTPClientEnqueueIncrementsDroppedWhenFull(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -80,6 +88,7 @@ func TestHTTPClientEnqueueIncrementsDroppedWhenFull(t *testing.T) {
 	}
 }
 
+// TestNewRejectsInvalidURL checks New fails fast on an unparseable dbURL.
 func TestNewRejectsInvalidURL(t *testing.T) {
 	if _, err := New(context.Background(), "://not-a-url"); err == nil {
 		t.Fatal("New must fail on an unparseable database URL")

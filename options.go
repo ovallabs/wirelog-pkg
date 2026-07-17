@@ -18,6 +18,7 @@ type options struct {
 	consumer      string
 }
 
+// defaultOptions returns the FRD instance defaults applied before user options.
 func defaultOptions() options {
 	return options{
 		buffer:        2048,

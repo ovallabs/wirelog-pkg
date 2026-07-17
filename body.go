@@ -20,20 +20,20 @@ func snapshotRequestBody(req *http.Request) []byte {
 	if err != nil {
 		return nil
 	}
-	b, err := io.ReadAll(rc)
+	snapshot, err := io.ReadAll(rc)
 	_ = rc.Close()
 	if err != nil {
 		return nil
 	}
-	return b
+	return snapshot
 }
 
 // copyBody eagerly reads rc to EOF and closes it (B3). It returns every byte
 // read plus any read error; both are replayed to the caller via swapBody.
 func copyBody(rc io.ReadCloser) ([]byte, error) {
-	b, err := io.ReadAll(rc)
+	bodyBytes, err := io.ReadAll(rc)
 	_ = rc.Close()
-	return b, err
+	return bodyBytes, err
 }
 
 // swapBody replaces resp.Body with a reader yielding the already-read bytes
@@ -53,6 +53,7 @@ type replayBody struct {
 	err error
 }
 
+// Read serves the buffered bytes, substituting the original read error for EOF.
 func (b *replayBody) Read(p []byte) (int, error) {
 	n, err := b.r.Read(p)
 	if err == io.EOF {
@@ -61,4 +62,5 @@ func (b *replayBody) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// Close is a no-op; the original body was already closed by copyBody.
 func (b *replayBody) Close() error { return nil }

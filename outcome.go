@@ -25,8 +25,8 @@ func classify(resp *http.Response, err error) string {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return outcomeTimeout
 		}
-		var ne net.Error
-		if errors.As(err, &ne) && ne.Timeout() {
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
 			return outcomeTimeout
 		}
 		return outcomeNetwork

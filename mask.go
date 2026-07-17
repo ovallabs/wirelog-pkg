@@ -61,7 +61,7 @@ func maskHeaders(src http.Header, deny map[string]struct{}) map[string][]string 
 
 // maskBody truncates to maxBytes BEFORE json.Unmarshal (B4), masks matched
 // fields, and returns valid JSON bytes or nil for an empty body.
-func maskBody(body []byte, maxBytes int, fields map[string]struct{}, m Masker) []byte {
+func maskBody(body []byte, maxBytes int, fields map[string]struct{}, masker Masker) []byte {
 	if len(body) == 0 {
 		return nil
 	}
@@ -70,51 +70,51 @@ func maskBody(body []byte, maxBytes int, fields map[string]struct{}, m Masker) [
 		body = body[:maxBytes]
 		truncated = true
 	}
-	var v any
-	if err := json.Unmarshal(body, &v); err != nil {
+	var decoded any
+	if err := json.Unmarshal(body, &decoded); err != nil {
 		return rawWrap(body, truncated)
 	}
-	out, err := json.Marshal(maskWalk(v, fields, m))
+	masked, err := json.Marshal(maskWalk(decoded, fields, masker))
 	if err != nil {
 		// custom Masker returned an unmarshalable value — remask with the
 		// constant rather than fall back to raw bytes and leak (B1)
-		out, _ = json.Marshal(maskWalk(v, fields, nil))
+		masked, _ = json.Marshal(maskWalk(decoded, fields, nil))
 	}
-	return out
+	return masked
 }
 
 // rawWrap packages non-JSON or broken-by-truncation bytes as valid JSON (B4).
 func rawWrap(body []byte, truncated bool) []byte {
-	w := map[string]any{"_raw": string(body)}
+	wrapper := map[string]any{"_raw": string(body)}
 	if truncated {
-		w["_truncated"] = true
+		wrapper["_truncated"] = true
 	}
-	out, _ := json.Marshal(w) // string keys/values never fail to marshal
-	return out
+	wrapped, _ := json.Marshal(wrapper) // string keys/values never fail to marshal
+	return wrapped
 }
 
 // maskWalk recurses through decoded JSON; on a key match it replaces the
 // VALUE wholesale and never recurses into the matched subtree (B6). The
 // value was decoded locally, so in-place mutation is safe.
-func maskWalk(v any, fields map[string]struct{}, m Masker) any {
-	switch t := v.(type) {
+func maskWalk(value any, fields map[string]struct{}, masker Masker) any {
+	switch node := value.(type) {
 	case map[string]any:
-		for k, val := range t {
-			lk := strings.ToLower(k)
-			if _, hit := fields[lk]; hit {
-				if m != nil {
-					t[k] = m(lk, val)
+		for key, child := range node {
+			lowerKey := strings.ToLower(key)
+			if _, matched := fields[lowerKey]; matched {
+				if masker != nil {
+					node[key] = masker(lowerKey, child)
 				} else {
-					t[k] = maskedValue
+					node[key] = maskedValue
 				}
 				continue
 			}
-			t[k] = maskWalk(val, fields, m)
+			node[key] = maskWalk(child, fields, masker)
 		}
 	case []any:
-		for i, val := range t {
-			t[i] = maskWalk(val, fields, m)
+		for i, element := range node {
+			node[i] = maskWalk(element, fields, masker)
 		}
 	}
-	return v
+	return value
 }

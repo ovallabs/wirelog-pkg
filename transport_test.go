@@ -16,12 +16,15 @@ import (
 	"time"
 )
 
+// newTestTransport mints a transport over next with a buffered record channel
+// and a fresh drop counter for assertions.
 func newTestTransport(next http.RoundTripper, cfg Config, instanceConsumer string, buf int) (*transport, chan record, *atomic.Int64) {
 	ch := make(chan record, buf)
 	var dropped atomic.Int64
 	return newTransport(next, newCapture(cfg, instanceConsumer), ch, &dropped), ch, &dropped
 }
 
+// recvRecord returns the next enqueued record, failing the test after 1s.
 func recvRecord(t *testing.T, ch chan record) record {
 	t.Helper()
 	select {
@@ -33,6 +36,9 @@ func recvRecord(t *testing.T, ch chan record) record {
 	}
 }
 
+// TestRoundTripFullRecordOnSuccess drives a real httptest call and verifies
+// every record field, with masking applied before enqueue (B1) while the
+// caller still receives unmasked bytes.
 func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(10 * time.Millisecond)
@@ -111,6 +117,8 @@ func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 	}
 }
 
+// TestRoundTripExcludePathsProduceNoRecord enforces B8: excluded paths pass
+// through untouched and enqueue nothing.
 func TestRoundTripExcludePathsProduceNoRecord(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -134,6 +142,8 @@ func TestRoundTripExcludePathsProduceNoRecord(t *testing.T) {
 	}
 }
 
+// TestRoundTripSkipBodyPathsRecordMetadataOnly checks skip-body paths record
+// metadata, sizes, and masked headers but never bodies (B8/B9).
 func TestRoundTripSkipBodyPathsRecordMetadataOnly(t *testing.T) {
 	respPayload := `{"access_token":"secret-token"}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -177,6 +187,8 @@ func TestRoundTripSkipBodyPathsRecordMetadataOnly(t *testing.T) {
 	}
 }
 
+// TestRoundTripSizesWithCaptureBodiesFalse checks sizes still record from
+// length headers when bodies are never read (B9).
 func TestRoundTripSizesWithCaptureBodiesFalse(t *testing.T) {
 	respPayload := `{"balance":100}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -203,6 +215,9 @@ func TestRoundTripSizesWithCaptureBodiesFalse(t *testing.T) {
 	}
 }
 
+// TestRoundTripBodyIntactBeyondMaxBodyBytes enforces B3 over the wire: a
+// response larger than MaxBodyBytes reaches the caller byte-for-byte while
+// the stored copy truncates.
 func TestRoundTripBodyIntactBeyondMaxBodyBytes(t *testing.T) {
 	big := []byte(`{"data":"` + strings.Repeat("x", 100_000) + `"}`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -245,10 +260,13 @@ type staticRoundTripper struct {
 	err  error
 }
 
+// RoundTrip returns the canned response and error unchanged.
 func (s *staticRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
 	return s.resp, s.err
 }
 
+// TestRoundTripReturnsWrappedResponseIdentity enforces B2: the caller gets
+// the wrapped transport's *http.Response pointer with only Body swapped.
 func TestRoundTripReturnsWrappedResponseIdentity(t *testing.T) {
 	inner := &http.Response{
 		StatusCode: 422,
@@ -277,6 +295,9 @@ func TestRoundTripReturnsWrappedResponseIdentity(t *testing.T) {
 	}
 }
 
+// TestRoundTripReturnsWrappedErrorIdentity enforces B2 on the error path:
+// the wrapped transport's error is returned by identity, and the failure is
+// still recorded.
 func TestRoundTripReturnsWrappedErrorIdentity(t *testing.T) {
 	sentinel := errors.New("dial tcp: connection refused")
 	tr, ch, _ := newTestTransport(&staticRoundTripper{err: sentinel}, NewConfig("magma", WithCaptureBodies(true)), "", 8)
@@ -297,6 +318,8 @@ func TestRoundTripReturnsWrappedErrorIdentity(t *testing.T) {
 	}
 }
 
+// TestRoundTripFullBufferDropsAndCounts enforces B2's non-blocking enqueue:
+// a full buffer drops and counts the record while the call still succeeds.
 func TestRoundTripFullBufferDropsAndCounts(t *testing.T) {
 	tr, _, dropped := newTestTransport(
 		&staticRoundTripper{resp: &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("{}"))}},
@@ -314,6 +337,8 @@ func TestRoundTripFullBufferDropsAndCounts(t *testing.T) {
 	}
 }
 
+// TestTransportConcurrentUse hammers one transport from many goroutines; the
+// race detector run enforces B17.
 func TestTransportConcurrentUse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"ok":true}`))

@@ -17,6 +17,9 @@ import (
 
 const integrationDBURL = "postgres://wirelog:wirelog@localhost:5439/wirelog?sslmode=disable"
 
+// TestWriterAgainstRealPostgres exercises New → enqueue → Close against the
+// docker-compose database, verifying row counts, B15 NULL mapping, and jsonb
+// containment.
 func TestWriterAgainstRealPostgres(t *testing.T) {
 	ctx := context.Background()
 	provider := fmt.Sprintf("it-%d", time.Now().UnixNano()) // unique per run

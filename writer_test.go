@@ -21,6 +21,7 @@ type recordingInserter struct {
 	err     error
 }
 
+// insertBatch copies and stores the batch, returning the configured error.
 func (r *recordingInserter) insertBatch(_ context.Context, recs []record) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -28,6 +29,7 @@ func (r *recordingInserter) insertBatch(_ context.Context, recs []record) error 
 	return r.err
 }
 
+// batchSizes returns the length of every recorded batch in insert order.
 func (r *recordingInserter) batchSizes() []int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -38,17 +40,20 @@ func (r *recordingInserter) batchSizes() []int {
 	return sizes
 }
 
+// recordingLogger captures every Printf line for assertions.
 type recordingLogger struct {
 	mu    sync.Mutex
 	lines []string
 }
 
+// Printf formats and stores the line instead of emitting it.
 func (l *recordingLogger) Printf(format string, args ...any) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.lines = append(l.lines, fmt.Sprintf(format, args...))
 }
 
+// startWriter builds a writer over a fresh channel and starts its goroutine.
 func startWriter(ins inserter, batch int, interval time.Duration, log Logger) (chan record, *writer, *atomic.Int64) {
 	ch := make(chan record, 256)
 	var dropped atomic.Int64
@@ -57,6 +62,7 @@ func startWriter(ins inserter, batch int, interval time.Duration, log Logger) (c
 	return ch, w, &dropped
 }
 
+// waitFor polls cond up to 2s, failing the test with msg on timeout.
 func waitFor(t *testing.T, cond func() bool, msg string) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
@@ -69,6 +75,8 @@ func waitFor(t *testing.T, cond func() bool, msg string) {
 	t.Fatal(msg)
 }
 
+// TestWriterFlushesAtBatchSize checks N records produce ceil(N/batch)
+// inserts at exactly the batch size (B13).
 func TestWriterFlushesAtBatchSize(t *testing.T) {
 	ins := &recordingInserter{}
 	ch, w, _ := startWriter(ins, 10, time.Hour, nopLogger{})
@@ -82,6 +90,8 @@ func TestWriterFlushesAtBatchSize(t *testing.T) {
 	}
 }
 
+// TestWriterFlushesPartialBatchOnInterval checks the ticker flushes a
+// partial batch without waiting for batch size (B13).
 func TestWriterFlushesPartialBatchOnInterval(t *testing.T) {
 	ins := &recordingInserter{}
 	ch, w, _ := startWriter(ins, 100, 20*time.Millisecond, nopLogger{})
@@ -95,6 +105,8 @@ func TestWriterFlushesPartialBatchOnInterval(t *testing.T) {
 	}
 }
 
+// TestWriterCloseDrainsAndFlushesRemainder enforces B13's shutdown order:
+// drain, final flush, goroutine exit.
 func TestWriterCloseDrainsAndFlushesRemainder(t *testing.T) {
 	ins := &recordingInserter{}
 	ch, w, _ := startWriter(ins, 100, time.Hour, nopLogger{})
@@ -112,6 +124,8 @@ func TestWriterCloseDrainsAndFlushesRemainder(t *testing.T) {
 	}
 }
 
+// TestWriterInsertFailureDropsBatchOnce checks a failed insert drops the
+// batch with exactly one log line and adds len(batch) to Dropped (B2, Q4).
 func TestWriterInsertFailureDropsBatchOnce(t *testing.T) {
 	ins := &recordingInserter{err: errors.New("connection lost")}
 	log := &recordingLogger{}
@@ -131,6 +145,8 @@ func TestWriterInsertFailureDropsBatchOnce(t *testing.T) {
 	}
 }
 
+// TestBuildInsertPlaceholdersAndNullMapping checks the rendered SQL uses
+// numbered placeholders only and args follow the B15 NULL-mapping rules.
 func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	full := record{
 		provider: "magma", consumer: "demo", operation: "payout.execute",
@@ -187,6 +203,8 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	}
 }
 
+// TestJSONTagsUnmarshalableBecomesNull checks tags that cannot marshal map
+// to NULL so the jsonb column never receives invalid JSON (B4).
 func TestJSONTagsUnmarshalableBecomesNull(t *testing.T) {
 	if got := jsonTags(map[string]any{"bad": make(chan int)}); got != nil {
 		t.Errorf("jsonTags(chan) = %v, want nil (jsonb gets valid JSON or NULL)", got)

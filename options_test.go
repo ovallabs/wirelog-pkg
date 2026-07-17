@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// TestDefaultOptions verifies the FRD instance defaults: buffer 2048, batch
+// 100, flush 2s, silent logger, migration off.
 func TestDefaultOptions(t *testing.T) {
 	o := defaultOptions()
 	if o.buffer != 2048 {
@@ -27,6 +29,7 @@ func TestDefaultOptions(t *testing.T) {
 	}
 }
 
+// TestOptionsApply checks every instance option writes its setting.
 func TestOptionsApply(t *testing.T) {
 	log := &recordingLogger{}
 	o := defaultOptions()
@@ -48,6 +51,8 @@ func TestOptionsApply(t *testing.T) {
 	}
 }
 
+// TestOptionsRejectInvalidValues checks zero, negative, and nil option
+// values keep the defaults instead of breaking the writer.
 func TestOptionsRejectInvalidValues(t *testing.T) {
 	o := defaultOptions()
 	for _, opt := range []Option{WithBuffer(0), WithBatchSize(-1), WithFlushInterval(0), WithLogger(nil)} {

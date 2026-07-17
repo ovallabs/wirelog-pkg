@@ -21,6 +21,7 @@ type transport struct {
 	dropped *atomic.Int64
 }
 
+// newTransport wraps next with capture state, the record queue, and the drop counter.
 func newTransport(next http.RoundTripper, c *capture, ch chan<- record, dropped *atomic.Int64) *transport {
 	return &transport{next: next, capture: c, ch: ch, dropped: dropped}
 }

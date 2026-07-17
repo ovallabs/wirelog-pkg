@@ -11,16 +11,20 @@ import (
 	"testing/iotest"
 )
 
+// closeTracker wraps a reader and records whether Close was called.
 type closeTracker struct {
 	io.Reader
 	closed bool
 }
 
+// Close records the call so tests can assert the body was closed.
 func (c *closeTracker) Close() error {
 	c.closed = true
 	return nil
 }
 
+// TestSnapshotRequestBodyLeavesOriginalReadable enforces B3: snapshots come
+// from GetBody only, leaving req.Body untouched and GetBody reusable.
 func TestSnapshotRequestBodyLeavesOriginalReadable(t *testing.T) {
 	payload := `{"msisdn":"+237670000001","amount":100}`
 	req, err := http.NewRequest(http.MethodPost, "http://magma/v1/transfers", strings.NewReader(payload))
@@ -43,6 +47,8 @@ func TestSnapshotRequestBodyLeavesOriginalReadable(t *testing.T) {
 	}
 }
 
+// TestSnapshotRequestBodyNilGetBody checks a nil GetBody yields no snapshot
+// and req.Body is never consumed.
 func TestSnapshotRequestBodyNilGetBody(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, "http://magma/v1/transfers", nil)
 	if err != nil {
@@ -60,6 +66,7 @@ func TestSnapshotRequestBodyNilGetBody(t *testing.T) {
 	}
 }
 
+// TestSnapshotRequestBodyNoBody checks a bodyless request snapshots to nil.
 func TestSnapshotRequestBodyNoBody(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://magma/partner/balance", nil)
 	if err != nil {
@@ -70,6 +77,8 @@ func TestSnapshotRequestBodyNoBody(t *testing.T) {
 	}
 }
 
+// TestCopyBodyReadsAllAndCloses checks the eager copy returns every byte and
+// closes the original body.
 func TestCopyBodyReadsAllAndCloses(t *testing.T) {
 	src := &closeTracker{Reader: strings.NewReader("response payload")}
 	full, err := copyBody(src)
@@ -84,6 +93,9 @@ func TestCopyBodyReadsAllAndCloses(t *testing.T) {
 	}
 }
 
+// TestCopyBodyReadErrorReplayedToCaller checks a mid-stream read error is
+// replayed to the caller after the partial bytes, preserving what the caller
+// would have observed reading the wire directly.
 func TestCopyBodyReadErrorReplayedToCaller(t *testing.T) {
 	sentinel := errors.New("connection reset")
 	src := &closeTracker{Reader: io.MultiReader(strings.NewReader("partial"), iotest.ErrReader(sentinel))}
@@ -112,6 +124,9 @@ func TestCopyBodyReadErrorReplayedToCaller(t *testing.T) {
 	}
 }
 
+// TestSwapBodyCallerGetsIdenticalBytesWhileCaptureTruncates enforces B3
+// end-to-end: the caller reads the full body byte-for-byte while the stored
+// copy is truncated and marked.
 func TestSwapBodyCallerGetsIdenticalBytesWhileCaptureTruncates(t *testing.T) {
 	big := []byte(`{"data":"` + strings.Repeat("x", 100_000) + `"}`)
 	full, err := copyBody(io.NopCloser(bytes.NewReader(big)))

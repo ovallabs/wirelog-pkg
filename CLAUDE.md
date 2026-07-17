@@ -14,6 +14,13 @@
 - Every analogy comment must still read as a complete technical statement
   with the metaphor deleted. The analogy annotates; it never replaces.
 
+## Code style
+- Every function — exported, unexported, and test helpers — carries at least
+  one sentence describing what it does.
+- Descriptive variable names: no cryptic locals (`lk`, `ne`); idiomatic Go
+  short names stay (single-letter receivers, `i`/`j` indices, `p []byte` in
+  Read, `rc` for a ReadCloser).
+
 - The spec is ./wirelog_frd_phase1.md. It is the single source of truth.
   If anything conflicts with it, stop and ask — do not silently choose.
 - PLAN.md tracks all work. Update task statuses IN THE SAME COMMIT as the
