@@ -57,6 +57,8 @@ func TestSchemaDDLMatchesFRD(t *testing.T) {
 		"endpoint         text        not null default ''",
 		"path             text        not null default ''",
 		"method           text        not null default ''",
+		"remote_ip        text",
+		"alter table provider_api_logs add column if not exists remote_ip text",
 		"status_code      int",
 		"outcome          text        not null",
 		"latency_ms       bigint      not null default 0",

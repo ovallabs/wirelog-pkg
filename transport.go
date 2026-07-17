@@ -5,7 +5,9 @@
 package wirelog
 
 import (
+	"net"
 	"net/http"
+	"net/http/httptrace"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -42,6 +44,18 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		reqBody = snapshotRequestBody(req)
 	}
 
+	// Per-request trace state stays on the stack, never on the transport
+	// (B17); atomic.Value because httptrace callbacks may run concurrently.
+	var remoteAddr atomic.Value
+	connTrace := &httptrace.ClientTrace{
+		GotConn: func(info httptrace.GotConnInfo) {
+			if info.Conn != nil && info.Conn.RemoteAddr() != nil {
+				remoteAddr.Store(info.Conn.RemoteAddr().String())
+			}
+		},
+	}
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), connTrace))
+
 	start := time.Now()
 	resp, err := t.next.RoundTrip(req)
 	latency := time.Since(start)
@@ -56,8 +70,22 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.enqueueRecord(exchange{
 		req: req, resp: resp, err: err, latency: latency,
 		reqBody: reqBody, respBody: respBody,
+		remoteIP: remoteIPFrom(remoteAddr.Load()),
 	})
 	return resp, err
+}
+
+// remoteIPFrom extracts the IP from a stored "ip:port" dial address,
+// returning "" when no connection was ever established (B19).
+func remoteIPFrom(stored any) string {
+	addr, _ := stored.(string)
+	if addr == "" {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
 }
 
 // enqueueRecord builds and enqueues the record for one exchange. It recovers

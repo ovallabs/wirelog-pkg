@@ -25,6 +25,7 @@ const schemaDDL = `create table if not exists provider_api_logs (
     endpoint         text        not null default '',
     path             text        not null default '',
     method           text        not null default '',
+    remote_ip        text,
     status_code      int,
     outcome          text        not null,
     latency_ms       bigint      not null default 0,
@@ -39,6 +40,7 @@ const schemaDDL = `create table if not exists provider_api_logs (
     error            text,
     tags             jsonb
 );
+alter table provider_api_logs add column if not exists remote_ip text;
 create index if not exists idx_pal_provider_time on provider_api_logs (provider, created_at desc);
 create index if not exists idx_pal_consumer_time on provider_api_logs (consumer, created_at desc);
 create index if not exists idx_pal_internal_ref  on provider_api_logs (internal_ref) where internal_ref is not null;

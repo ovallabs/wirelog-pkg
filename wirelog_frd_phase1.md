@@ -123,6 +123,7 @@ create table if not exists provider_api_logs (
     endpoint         text        not null default '',
     path             text        not null default '',
     method           text        not null default '',
+    remote_ip        text,
     status_code      int,
     outcome          text        not null,
     latency_ms       bigint      not null default 0,
@@ -137,6 +138,7 @@ create table if not exists provider_api_logs (
     error            text,
     tags             jsonb
 );
+alter table provider_api_logs add column if not exists remote_ip text;
 create index if not exists idx_pal_provider_time on provider_api_logs (provider, created_at desc);
 create index if not exists idx_pal_consumer_time on provider_api_logs (consumer, created_at desc);
 create index if not exists idx_pal_internal_ref  on provider_api_logs (internal_ref) where internal_ref is not null;
@@ -167,6 +169,7 @@ create index if not exists idx_pal_resp_body_gin on provider_api_logs using gin 
 16. Redirects: http.Client resolves redirects ABOVE the transport, so each hop is its own RoundTrip and produces its own record. This is accepted and correct (each hop truly crossed the wire); do not add redirect deduplication.
 17. Thread safety: one HTTPClient is shared by many goroutines. The transport must hold no per-request mutable state; Config is read-only after mint. The race detector run is the enforcement.
 18. Deliberately deferred (do NOT implement): an IdempotencyHeader fallback (reading the key from a request header when the ctx annotation is absent) is planned for a later phase. Phase 1 is context-only.
+19. remote_ip: the resolved IP of the provider connection, captured via httptrace GotConn (port stripped). Connections that were never established (dial refused, DNS failure) leave it NULL. The trace state is per-request and must not live on the transport (B17).
 
 ## Local verification (Kehinde's requirement — build this to be runnable)
 

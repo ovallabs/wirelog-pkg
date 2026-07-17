@@ -151,6 +151,7 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	full := record{
 		provider: "magma", consumer: "demo", operation: "payout.execute",
 		endpoint: "/v1/transfers/{id}", path: "/v1/transfers/123", method: "POST",
+		remoteIP:   "10.1.2.3",
 		statusCode: 200, outcome: outcomeSuccess, latencyMS: 42, requestSize: 10, responseSize: 20,
 		internalRef: "ref-1", idempotencyKey: "idem-1",
 		requestHeaders:  map[string][]string{"Content-Type": {"application/json"}},
@@ -167,7 +168,7 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	if got := strings.Count(sql, "$"); got != 2*colCount {
 		t.Errorf("placeholder count = %d, want %d", got, 2*colCount)
 	}
-	if !strings.Contains(sql, "$38") || strings.Contains(sql, "$39") {
+	if !strings.Contains(sql, "$40") || strings.Contains(sql, "$41") {
 		t.Error("placeholders must be numbered continuously across rows")
 	}
 	if got := strings.Count(sql, "::jsonb"); got != 10 {
@@ -182,24 +183,24 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 		t.Fatalf("args = %d, want %d", len(args), 2*colCount)
 	}
 
-	if args[6] != 200 || args[11] != "ref-1" || args[12] != "idem-1" || args[17] != "boom" {
-		t.Errorf("full row nullable args wrong: %v %v %v %v", args[6], args[11], args[12], args[17])
+	if args[6] != "10.1.2.3" || args[7] != 200 || args[12] != "ref-1" || args[13] != "idem-1" || args[18] != "boom" {
+		t.Errorf("full row nullable args wrong: %v %v %v %v %v", args[6], args[7], args[12], args[13], args[18])
 	}
-	if args[13] != `{"Content-Type":["application/json"]}` || args[14] != `{"a":1}` || args[18] != `{"k":"v"}` {
-		t.Errorf("full row jsonb args wrong: %v %v %v", args[13], args[14], args[18])
+	if args[14] != `{"Content-Type":["application/json"]}` || args[15] != `{"a":1}` || args[19] != `{"k":"v"}` {
+		t.Errorf("full row jsonb args wrong: %v %v %v", args[14], args[15], args[19])
 	}
 
 	e := args[colCount:]
 	if e[1] != "" || e[2] != "" || e[3] != "" || e[4] != "" || e[5] != "" {
 		t.Errorf("non-nullable text columns must keep '' defaults, got %v", e[1:6])
 	}
-	for _, idx := range []int{6, 11, 12, 13, 14, 15, 16, 17, 18} {
+	for _, idx := range []int{6, 7, 12, 13, 14, 15, 16, 17, 18, 19} {
 		if e[idx] != nil {
 			t.Errorf("empty row arg %d = %v, want SQL NULL (B15)", idx, e[idx])
 		}
 	}
-	if e[8] != int64(0) || e[9] != int64(0) || e[10] != int64(0) {
-		t.Errorf("latency/sizes must stay 0, not NULL: %v %v %v", e[8], e[9], e[10])
+	if e[9] != int64(0) || e[10] != int64(0) || e[11] != int64(0) {
+		t.Errorf("latency/sizes must stay 0, not NULL: %v %v %v", e[9], e[10], e[11])
 	}
 }
 

@@ -131,10 +131,11 @@ where internal_ref = 'PYT-2026-0001'
 order by created_at desc;
 ```
 
-Recent failures for one provider:
+Recent failures for one provider (`remote_ip` is the resolved provider IP,
+NULL when the connection was never established):
 
 ```sql
-select created_at, endpoint, outcome, status_code, error
+select created_at, endpoint, outcome, status_code, remote_ip, error
 from provider_api_logs
 where provider = 'magma' and outcome <> 'success'
 order by created_at desc

@@ -32,6 +32,7 @@ func TestWriterAgainstRealPostgres(t *testing.T) {
 	full := record{
 		provider: provider, consumer: "it", operation: "payout.execute",
 		endpoint: "/v1/transfers/{id}", path: "/v1/transfers/123", method: "POST",
+		remoteIP:   "10.0.0.9",
 		statusCode: 200, outcome: outcomeSuccess, latencyMS: 42, requestSize: 10, responseSize: 20,
 		internalRef: "ref-1", idempotencyKey: "idem-1",
 		requestHeaders:  map[string][]string{"Content-Type": {"application/json"}},
@@ -66,19 +67,19 @@ func TestWriterAgainstRealPostgres(t *testing.T) {
 	}
 
 	// NULL mapping (B15) on the sparse row.
-	var statusNull, refNull, headersNull, bodyNull, tagsNull bool
+	var statusNull, refNull, headersNull, bodyNull, tagsNull, ipNull bool
 	var consumer string
 	err = pool.QueryRow(ctx,
 		`select status_code is null, internal_ref is null, request_headers is null,
-		        request_body is null, tags is null, consumer
+		        request_body is null, tags is null, remote_ip is null, consumer
 		 from provider_api_logs where provider = $1 and outcome = $2`,
-		provider, outcomeNetwork).Scan(&statusNull, &refNull, &headersNull, &bodyNull, &tagsNull, &consumer)
+		provider, outcomeNetwork).Scan(&statusNull, &refNull, &headersNull, &bodyNull, &tagsNull, &ipNull, &consumer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !statusNull || !refNull || !headersNull || !bodyNull || !tagsNull {
-		t.Errorf("zero/empty/nil fields must be SQL NULL: status=%v ref=%v headers=%v body=%v tags=%v",
-			statusNull, refNull, headersNull, bodyNull, tagsNull)
+	if !statusNull || !refNull || !headersNull || !bodyNull || !tagsNull || !ipNull {
+		t.Errorf("zero/empty/nil fields must be SQL NULL: status=%v ref=%v headers=%v body=%v tags=%v ip=%v",
+			statusNull, refNull, headersNull, bodyNull, tagsNull, ipNull)
 	}
 	if consumer != "" {
 		t.Errorf("consumer = %q, want '' (non-nullable text keeps its default)", consumer)

@@ -66,8 +66,12 @@ func TestBuildRecordSuccessFields(t *testing.T) {
 
 	rec := c.buildRecord(exchange{
 		req: req, resp: resp, latency: 1500 * time.Millisecond,
-		reqBody: reqBody, respBody: respBody,
+		reqBody: reqBody, respBody: respBody, remoteIP: "34.120.8.4",
 	})
+
+	if rec.remoteIP != "34.120.8.4" {
+		t.Errorf("remoteIP = %q, want 34.120.8.4 passed through (B19)", rec.remoteIP)
+	}
 
 	if rec.provider != "magma" || rec.consumer != "inst" {
 		t.Errorf("provider/consumer = %q/%q, want magma/inst", rec.provider, rec.consumer)

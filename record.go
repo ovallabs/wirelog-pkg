@@ -16,6 +16,7 @@ type record struct {
 	endpoint        string
 	path            string
 	method          string
+	remoteIP        string
 	statusCode      int
 	outcome         string
 	latencyMS       int64
@@ -65,6 +66,7 @@ type exchange struct {
 	latency  time.Duration
 	reqBody  []byte // raw request snapshot; nil when bodies are not captured
 	respBody []byte // full response bytes; nil when bodies are not captured
+	remoteIP string // resolved provider IP; "" when no connection was made (B19)
 }
 
 // buildRecord assembles the persisted record; masking happens here, inside
@@ -78,6 +80,7 @@ func (c *capture) buildRecord(x exchange) record {
 		endpoint:       c.cfg.PathNormalizer(x.req.URL.Path),
 		path:           x.req.URL.Path,
 		method:         x.req.Method,
+		remoteIP:       x.remoteIP,
 		outcome:        classify(x.resp, x.err),
 		latencyMS:      x.latency.Milliseconds(),
 		requestSize:    requestSize(x.req, x.reqBody),

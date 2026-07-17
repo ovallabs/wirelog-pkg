@@ -96,6 +96,9 @@ func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 	if rec.responseSize != int64(len(body)) {
 		t.Errorf("responseSize = %d, want %d actual bytes", rec.responseSize, len(body))
 	}
+	if rec.remoteIP != "127.0.0.1" {
+		t.Errorf("remoteIP = %q, want the httptest server's 127.0.0.1 (B19)", rec.remoteIP)
+	}
 	if got := rec.requestHeaders["Authorization"]; !reflect.DeepEqual(got, []string{maskedValue}) {
 		t.Errorf("Authorization = %v, want masked before enqueue (B1)", got)
 	}
@@ -315,6 +318,9 @@ func TestRoundTripReturnsWrappedErrorIdentity(t *testing.T) {
 	rec := recvRecord(t, ch)
 	if rec.outcome != outcomeNetwork || rec.callErr != sentinel.Error() || rec.statusCode != 0 {
 		t.Errorf("record = %+v, want network outcome with error text", rec)
+	}
+	if rec.remoteIP != "" {
+		t.Errorf("remoteIP = %q, want empty when no connection was made (B19)", rec.remoteIP)
 	}
 }
 

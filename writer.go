@@ -116,19 +116,19 @@ func (p *pgInserter) insertBatch(ctx context.Context, records []record) error {
 
 // insertColumns lists the target columns in record-field order.
 const insertColumns = "provider, consumer, operation, endpoint, path, method, " +
-	"status_code, outcome, latency_ms, request_size, response_size, " +
+	"remote_ip, status_code, outcome, latency_ms, request_size, response_size, " +
 	"internal_ref, idempotency_key, request_headers, request_body, " +
 	"response_headers, response_body, error, tags"
 
-const colCount = 19
+const colCount = 20
 
 // maxBatchSize keeps one multi-row INSERT under Postgres's 65535
-// bind-parameter statement limit (65535 / colCount ≈ 3449) with headroom.
+// bind-parameter statement limit (65535 / colCount ≈ 3276) with headroom.
 const maxBatchSize = 3000
 
 // jsonbCols marks 1-based placeholder positions cast with ::jsonb so the
 // driver never has to guess the parameter type.
-var jsonbCols = map[int]bool{14: true, 15: true, 16: true, 17: true, 19: true}
+var jsonbCols = map[int]bool{15: true, 16: true, 17: true, 18: true, 20: true}
 
 // buildInsert renders one multi-row INSERT using numbered placeholders only;
 // record values are never interpolated into the SQL (B13).
@@ -153,6 +153,7 @@ func buildInsert(records []record) (string, []any) {
 		query.WriteByte(')')
 		args = append(args,
 			rec.provider, rec.consumer, rec.operation, rec.endpoint, rec.path, rec.method,
+			nullText(rec.remoteIP),
 			nullInt(rec.statusCode), rec.outcome, rec.latencyMS, rec.requestSize, rec.responseSize,
 			nullText(rec.internalRef), nullText(rec.idempotencyKey),
 			jsonHeaders(rec.requestHeaders), jsonBody(rec.requestBody),
