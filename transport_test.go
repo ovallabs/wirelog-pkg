@@ -37,7 +37,7 @@ func recvRecord(t *testing.T, ch chan record) record {
 }
 
 // TestRoundTripFullRecordOnSuccess drives a real httptest call and verifies
-// every record field, with masking applied before enqueue (B1) while the
+// every record field, with masking applied before enqueue while the
 // caller still receives unmasked bytes.
 func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -97,10 +97,10 @@ func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 		t.Errorf("responseSize = %d, want %d actual bytes", rec.responseSize, len(body))
 	}
 	if rec.remoteIP != "127.0.0.1" {
-		t.Errorf("remoteIP = %q, want the httptest server's 127.0.0.1 (B19)", rec.remoteIP)
+		t.Errorf("remoteIP = %q, want the httptest server's 127.0.0.1", rec.remoteIP)
 	}
 	if got := rec.requestHeaders["Authorization"]; !reflect.DeepEqual(got, []string{maskedValue}) {
-		t.Errorf("Authorization = %v, want masked before enqueue (B1)", got)
+		t.Errorf("Authorization = %v, want masked before enqueue", got)
 	}
 	if got := rec.responseHeaders["Set-Cookie"]; !reflect.DeepEqual(got, []string{maskedValue}) {
 		t.Errorf("Set-Cookie = %v, want masked", got)
@@ -110,7 +110,7 @@ func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 		t.Fatalf("requestBody invalid JSON: %v", err)
 	}
 	if rb["msisdn"] != maskedValue {
-		t.Errorf("requestBody msisdn = %v, want masked before enqueue (B1)", rb["msisdn"])
+		t.Errorf("requestBody msisdn = %v, want masked before enqueue", rb["msisdn"])
 	}
 	if err := json.Unmarshal(rec.responseBody, &sb); err != nil {
 		t.Fatalf("responseBody invalid JSON: %v", err)
@@ -120,7 +120,7 @@ func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 	}
 }
 
-// TestRoundTripExcludePathsProduceNoRecord enforces B8: excluded paths pass
+// TestRoundTripExcludePathsProduceNoRecord checks excluded paths pass
 // through untouched and enqueue nothing.
 func TestRoundTripExcludePathsProduceNoRecord(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +146,7 @@ func TestRoundTripExcludePathsProduceNoRecord(t *testing.T) {
 }
 
 // TestRoundTripSkipBodyPathsRecordMetadataOnly checks skip-body paths record
-// metadata, sizes, and masked headers but never bodies (B8/B9).
+// metadata, sizes, and masked headers but never bodies.
 func TestRoundTripSkipBodyPathsRecordMetadataOnly(t *testing.T) {
 	respPayload := `{"access_token":"secret-token"}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -191,7 +191,7 @@ func TestRoundTripSkipBodyPathsRecordMetadataOnly(t *testing.T) {
 }
 
 // TestRoundTripSizesWithCaptureBodiesFalse checks sizes still record from
-// length headers when bodies are never read (B9).
+// length headers when bodies are never read.
 func TestRoundTripSizesWithCaptureBodiesFalse(t *testing.T) {
 	respPayload := `{"balance":100}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -213,12 +213,12 @@ func TestRoundTripSizesWithCaptureBodiesFalse(t *testing.T) {
 		t.Error("bodies must be nil with CaptureBodies=false")
 	}
 	if rec.requestSize != int64(len(reqBody)) || rec.responseSize != int64(len(respPayload)) {
-		t.Errorf("sizes = %d/%d, want %d/%d from length headers (B9)",
+		t.Errorf("sizes = %d/%d, want %d/%d from length headers",
 			rec.requestSize, rec.responseSize, len(reqBody), len(respPayload))
 	}
 }
 
-// TestRoundTripBodyIntactBeyondMaxBodyBytes enforces B3 over the wire: a
+// TestRoundTripBodyIntactBeyondMaxBodyBytes checks, over the wire, that a
 // response larger than MaxBodyBytes reaches the caller byte-for-byte while
 // the stored copy truncates.
 func TestRoundTripBodyIntactBeyondMaxBodyBytes(t *testing.T) {
@@ -241,7 +241,7 @@ func TestRoundTripBodyIntactBeyondMaxBodyBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(body, big) {
-		t.Fatalf("caller received %d bytes, want the original %d byte-for-byte (B3)", len(body), len(big))
+		t.Fatalf("caller received %d bytes, want the original %d byte-for-byte", len(body), len(big))
 	}
 
 	rec := recvRecord(t, ch)
@@ -268,7 +268,7 @@ func (s *staticRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
 	return s.resp, s.err
 }
 
-// TestRoundTripReturnsWrappedResponseIdentity enforces B2: the caller gets
+// TestRoundTripReturnsWrappedResponseIdentity checks the caller gets
 // the wrapped transport's *http.Response pointer with only Body swapped.
 func TestRoundTripReturnsWrappedResponseIdentity(t *testing.T) {
 	inner := &http.Response{
@@ -286,7 +286,7 @@ func TestRoundTripReturnsWrappedResponseIdentity(t *testing.T) {
 		t.Fatalf("err = %v, want nil", err)
 	}
 	if resp != inner {
-		t.Error("must return the wrapped transport's *http.Response, only Body swapped (B2)")
+		t.Error("must return the wrapped transport's *http.Response, only Body swapped")
 	}
 	body, _ := io.ReadAll(resp.Body)
 	if string(body) != `{"error":"bad"}` {
@@ -298,7 +298,7 @@ func TestRoundTripReturnsWrappedResponseIdentity(t *testing.T) {
 	}
 }
 
-// TestRoundTripReturnsWrappedErrorIdentity enforces B2 on the error path:
+// TestRoundTripReturnsWrappedErrorIdentity checks the error path:
 // the wrapped transport's error is returned by identity, and the failure is
 // still recorded.
 func TestRoundTripReturnsWrappedErrorIdentity(t *testing.T) {
@@ -312,7 +312,7 @@ func TestRoundTripReturnsWrappedErrorIdentity(t *testing.T) {
 	if resp != nil {
 		t.Errorf("resp = %v, want nil", resp)
 	}
-	if gotErr != sentinel { //nolint:errorlint // identity is the contract (B2)
+	if gotErr != sentinel { //nolint:errorlint // identity is the contract
 		t.Errorf("err = %v, want the wrapped transport's error unmodified", gotErr)
 	}
 	rec := recvRecord(t, ch)
@@ -320,11 +320,11 @@ func TestRoundTripReturnsWrappedErrorIdentity(t *testing.T) {
 		t.Errorf("record = %+v, want network outcome with error text", rec)
 	}
 	if rec.remoteIP != "" {
-		t.Errorf("remoteIP = %q, want empty when no connection was made (B19)", rec.remoteIP)
+		t.Errorf("remoteIP = %q, want empty when no connection was made", rec.remoteIP)
 	}
 }
 
-// TestRoundTripFullBufferDropsAndCounts enforces B2's non-blocking enqueue:
+// TestRoundTripFullBufferDropsAndCounts checks the non-blocking enqueue:
 // a full buffer drops and counts the record while the call still succeeds.
 func TestRoundTripFullBufferDropsAndCounts(t *testing.T) {
 	tr, _, dropped := newTestTransport(
@@ -343,7 +343,7 @@ func TestRoundTripFullBufferDropsAndCounts(t *testing.T) {
 	}
 }
 
-// TestRoundTripPanickingCallbackNeverFailsCall enforces B2 against user
+// TestRoundTripPanickingCallbackNeverFailsCall checks capture against user
 // code: a panicking Masker or PathNormalizer abandons the record, counts it
 // as dropped, and the caller still gets the response.
 func TestRoundTripPanickingCallbackNeverFailsCall(t *testing.T) {
@@ -369,7 +369,7 @@ func TestRoundTripPanickingCallbackNeverFailsCall(t *testing.T) {
 			}
 			resp, rtErr := tr.RoundTrip(req)
 			if rtErr != nil || resp == nil || resp.StatusCode != 200 {
-				t.Fatalf("call failed under panicking callback (B2): resp=%v err=%v", resp, rtErr)
+				t.Fatalf("call failed under panicking callback: resp=%v err=%v", resp, rtErr)
 			}
 			body, _ := io.ReadAll(resp.Body)
 			if string(body) != `{"msisdn":"+237670000001"}` {
@@ -388,7 +388,7 @@ func TestRoundTripPanickingCallbackNeverFailsCall(t *testing.T) {
 }
 
 // TestTransportConcurrentUse hammers one transport from many goroutines; the
-// race detector run enforces B17.
+// race detector run is the assertion.
 func TestTransportConcurrentUse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"ok":true}`))

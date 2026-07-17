@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-// snapshotRequestBody captures the request body via req.GetBody ONLY (B3);
+// snapshotRequestBody captures the request body via req.GetBody ONLY;
 // req.Body is never consumed. Returns nil when no snapshot is possible, in
 // which case sizes fall back to req.ContentLength.
 func snapshotRequestBody(req *http.Request) []byte {
@@ -28,7 +28,7 @@ func snapshotRequestBody(req *http.Request) []byte {
 	return snapshot
 }
 
-// copyBody eagerly reads rc to EOF and closes it (B3). It returns every byte
+// copyBody eagerly reads rc to EOF and closes it. It returns every byte
 // read plus any read error; both are replayed to the caller via swapBody.
 func copyBody(rc io.ReadCloser) ([]byte, error) {
 	bodyBytes, err := io.ReadAll(rc)

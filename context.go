@@ -29,7 +29,7 @@ func WithOperation(ctx context.Context, op Operation) context.Context {
 	return context.WithValue(ctx, ctxOperation, op)
 }
 
-// WithConsumer overrides the consumer for calls under ctx (highest B10 precedence).
+// WithConsumer overrides the consumer for calls under ctx (highest precedence).
 func WithConsumer(ctx context.Context, consumer string) context.Context {
 	return context.WithValue(ctx, ctxConsumer, consumer)
 }
@@ -80,7 +80,7 @@ func tagsFrom(ctx context.Context) map[string]any {
 	return tags
 }
 
-// resolveConsumer applies B10 precedence: WithConsumer(ctx) > Config.Consumer > instance default.
+// resolveConsumer applies consumer precedence: WithConsumer(ctx) > Config.Consumer > instance default.
 func resolveConsumer(ctx context.Context, cfgConsumer, instanceDefault string) string {
 	if c := consumerFrom(ctx); c != "" {
 		return c

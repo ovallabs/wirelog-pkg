@@ -5,7 +5,7 @@ package wirelog
 
 import "strings"
 
-// hexSegMin is the shortest all-hex segment treated as an identifier (B14 "long hex").
+// hexSegMin is the shortest all-hex segment treated as an identifier.
 const hexSegMin = 16
 
 // DefaultNormalizer replaces UUID, all-numeric, and long-hex path segments

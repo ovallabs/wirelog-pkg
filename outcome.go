@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-// outcome values stored in the outcome column (B7).
+// outcome values stored in the outcome column.
 const (
 	outcomeSuccess       = "success"
 	outcomeProviderError = "provider_error"
@@ -18,7 +18,7 @@ const (
 	outcomeNetwork       = "network"
 )
 
-// classify maps a transport result to an outcome (B7). errors.Is/As unwrap,
+// classify maps a transport result to an outcome. errors.Is/As unwrap,
 // so DeadlineExceeded inside a *url.Error still classifies as timeout.
 func classify(resp *http.Response, err error) string {
 	if err != nil {

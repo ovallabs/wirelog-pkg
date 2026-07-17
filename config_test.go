@@ -16,7 +16,7 @@ func TestConfigOptionMutates(t *testing.T) {
 	}
 }
 
-// TestConfigConcurrentReads enforces B17: a minted Config is safe as
+// TestConfigConcurrentReads checks a minted Config is safe as
 // read-only shared state. The race detector is the assertion.
 func TestConfigConcurrentReads(t *testing.T) {
 	cfg := Config{

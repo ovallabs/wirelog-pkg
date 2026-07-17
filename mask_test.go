@@ -32,13 +32,13 @@ func TestMaskHeadersBuiltinAndCustomDeny(t *testing.T) {
 	}
 }
 
-// TestMaskHeadersDoesNotMutateSource enforces B5: masking copies, and the
+// TestMaskHeadersDoesNotMutateSource checks masking copies, and the
 // copy shares no value slices with the source map.
 func TestMaskHeadersDoesNotMutateSource(t *testing.T) {
 	src := http.Header{"Authorization": {"Bearer abc"}, "Accept": {"*/*"}}
 	_ = maskHeaders(src, denyHeaderSet(nil))
 	if src.Get("Authorization") != "Bearer abc" {
-		t.Error("source header map was mutated (B5)")
+		t.Error("source header map was mutated")
 	}
 	got := maskHeaders(src, denyHeaderSet(nil))
 	got["Accept"][0] = "mutated"
@@ -59,7 +59,7 @@ func TestMaskHeadersCaseInsensitive(t *testing.T) {
 }
 
 // TestMaskHeadersEmptyIsNil checks empty input maps to nil so the jsonb
-// column stores NULL (B15).
+// column stores NULL.
 func TestMaskHeadersEmptyIsNil(t *testing.T) {
 	if got := maskHeaders(nil, denyHeaderSet(nil)); got != nil {
 		t.Errorf("maskHeaders(nil) = %v, want nil", got)
@@ -108,7 +108,7 @@ func TestMaskBodyNestedObjectsAndArrays(t *testing.T) {
 }
 
 // TestMaskBodyCaseInsensitiveKeys confirms body keys match the mask list
-// regardless of casing (B6).
+// regardless of casing.
 func TestMaskBodyCaseInsensitiveKeys(t *testing.T) {
 	v := maskJSON(t, `{"MSISDN": "+237670000001", "Account_Number": "01234"}`, 16384, nil)
 	if v["MSISDN"] != maskedValue || v["Account_Number"] != maskedValue {
@@ -116,13 +116,13 @@ func TestMaskBodyCaseInsensitiveKeys(t *testing.T) {
 	}
 }
 
-// TestMaskBodyMatchedSubtreeReplacedWholesale enforces B6: a matched key's
+// TestMaskBodyMatchedSubtreeReplacedWholesale checks a matched key's
 // entire value is replaced, with no recursion into the matched subtree.
 func TestMaskBodyMatchedSubtreeReplacedWholesale(t *testing.T) {
 	body := `{"token": {"access": "a", "refresh": {"deep": "b"}}, "keep": {"token": "x"}}`
 	v := maskJSON(t, body, 16384, nil)
 	if v["token"] != maskedValue {
-		t.Errorf("matched subtree = %v, want value replaced entirely (B6)", v["token"])
+		t.Errorf("matched subtree = %v, want value replaced entirely", v["token"])
 	}
 	if v["keep"].(map[string]any)["token"] != maskedValue {
 		t.Errorf("nested match inside unmatched parent not masked: %v", v["keep"])
@@ -151,7 +151,7 @@ func TestMaskBodyCustomMasker(t *testing.T) {
 }
 
 // TestMaskBodyNonJSONWrap checks non-JSON bodies wrap as {"_raw": ...}
-// without a spurious truncation marker (B4).
+// without a spurious truncation marker.
 func TestMaskBodyNonJSONWrap(t *testing.T) {
 	out := maskBody([]byte("plain text, not json"), 16384, maskFieldSet(nil), nil)
 	var v map[string]any
@@ -167,7 +167,7 @@ func TestMaskBodyNonJSONWrap(t *testing.T) {
 }
 
 // TestMaskBodyTruncationMarker checks bytes are cut BEFORE parsing and the
-// wrap carries _truncated plus exactly the first maxBytes bytes (B4).
+// wrap carries _truncated plus exactly the first maxBytes bytes.
 func TestMaskBodyTruncationMarker(t *testing.T) {
 	body := `{"data": "` + strings.Repeat("x", 100) + `"}`
 	out := maskBody([]byte(body), 20, maskFieldSet(nil), nil)
@@ -184,7 +184,7 @@ func TestMaskBodyTruncationMarker(t *testing.T) {
 }
 
 // TestMaskBodyEmptyIsNil checks empty bodies produce nil so the jsonb column
-// stores NULL (B4/B15).
+// stores NULL.
 func TestMaskBodyEmptyIsNil(t *testing.T) {
 	if out := maskBody(nil, 16384, maskFieldSet(nil), nil); out != nil {
 		t.Errorf("maskBody(nil) = %s, want nil", out)
@@ -195,7 +195,7 @@ func TestMaskBodyEmptyIsNil(t *testing.T) {
 }
 
 // TestMaskBodyUnmarshalableMaskerResultRemasks checks a Masker returning an
-// unmarshalable value falls back to constant masking, never raw bytes (B1).
+// unmarshalable value falls back to constant masking, never raw bytes.
 func TestMaskBodyUnmarshalableMaskerResultRemasks(t *testing.T) {
 	m := func(field string, value any) any { return make(chan int) }
 	out := maskBody([]byte(`{"msisdn": "+237670000001"}`), 16384, maskFieldSet(defaultMaskFields), m)
@@ -204,6 +204,6 @@ func TestMaskBodyUnmarshalableMaskerResultRemasks(t *testing.T) {
 		t.Fatalf("fallback is not valid JSON: %v", err)
 	}
 	if v["msisdn"] != maskedValue {
-		t.Errorf("msisdn = %v, want constant-masked fallback, never raw (B1)", v["msisdn"])
+		t.Errorf("msisdn = %v, want constant-masked fallback, never raw", v["msisdn"])
 	}
 }

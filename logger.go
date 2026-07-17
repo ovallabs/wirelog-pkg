@@ -8,7 +8,7 @@ type Logger interface {
 	Printf(format string, args ...any)
 }
 
-// nopLogger is the default: silent (B2).
+// nopLogger is the default: silent.
 type nopLogger struct{}
 
 // Printf discards the line; the default logger never emits anything.

@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// insertTimeout bounds each batch INSERT (B13).
+// insertTimeout bounds each batch INSERT.
 const insertTimeout = 10 * time.Second
 
 // inserter is the single seam between the writer and Postgres; tests fake it
@@ -23,7 +23,7 @@ type inserter interface {
 	insertBatch(ctx context.Context, recs []record) error
 }
 
-// writer owns the only goroutine that touches the database (B13).
+// writer owns the only goroutine that touches the database.
 type writer struct {
 	ch       <-chan record
 	ins      inserter
@@ -62,7 +62,7 @@ func (w *writer) run() {
 			w.flush(&buf)
 		case <-w.stop:
 			// Drain what is already queued, flush once more, then exit — the
-			// van finishes its route before the depot shuts (B13).
+			// van finishes its route before the depot shuts.
 			for {
 				select {
 				case rec := <-w.ch:
@@ -80,8 +80,8 @@ func (w *writer) run() {
 }
 
 // flush delivers buf as one batch INSERT and resets it. A failed batch is
-// dropped after exactly one log line, adding its length to the drop counter
-// (B2, Q4 ruling); errors never propagate.
+// dropped after exactly one log line, adding its length to the drop
+// counter; errors never propagate.
 func (w *writer) flush(buf *[]record) {
 	if len(*buf) == 0 {
 		return
@@ -131,7 +131,7 @@ const maxBatchSize = 3000
 var jsonbCols = map[int]bool{15: true, 16: true, 17: true, 18: true, 20: true}
 
 // buildInsert renders one multi-row INSERT using numbered placeholders only;
-// record values are never interpolated into the SQL (B13).
+// record values are never interpolated into the SQL.
 func buildInsert(records []record) (string, []any) {
 	var query strings.Builder
 	query.WriteString("insert into provider_api_logs (" + insertColumns + ") values ")
@@ -164,7 +164,7 @@ func buildInsert(records []record) (string, []any) {
 	return query.String(), args
 }
 
-// nullText maps the empty string to SQL NULL for nullable text columns (B15).
+// nullText maps the empty string to SQL NULL for nullable text columns.
 func nullText(s string) any {
 	if s == "" {
 		return nil
@@ -172,7 +172,7 @@ func nullText(s string) any {
 	return s
 }
 
-// nullInt maps 0 to SQL NULL for status_code (B15).
+// nullInt maps 0 to SQL NULL for status_code.
 func nullInt(n int) any {
 	if n == 0 {
 		return nil
@@ -181,7 +181,7 @@ func nullInt(n int) any {
 }
 
 // jsonBody passes already-masked JSON bytes as a jsonb string param; empty
-// means NULL (B15).
+// means NULL.
 func jsonBody(b []byte) any {
 	if len(b) == 0 {
 		return nil
@@ -189,7 +189,7 @@ func jsonBody(b []byte) any {
 	return string(b)
 }
 
-// jsonHeaders marshals a header map for its jsonb param; nil means NULL (B15).
+// jsonHeaders marshals a header map for its jsonb param; nil means NULL.
 func jsonHeaders(headers map[string][]string) any {
 	if headers == nil {
 		return nil
@@ -202,7 +202,7 @@ func jsonHeaders(headers map[string][]string) any {
 }
 
 // jsonTags marshals tags for their jsonb param; nil maps and unmarshalable
-// values (a jsonb column must receive valid JSON or NULL, B4) become NULL.
+// values (a jsonb column must receive valid JSON or NULL) become NULL.
 func jsonTags(tags map[string]any) any {
 	if tags == nil {
 		return nil

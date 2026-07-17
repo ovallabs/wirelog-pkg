@@ -18,7 +18,7 @@ import (
 const integrationDBURL = "postgres://wirelog:wirelog@localhost:5439/wirelog?sslmode=disable"
 
 // TestWriterAgainstRealPostgres exercises New → enqueue → Close against the
-// docker-compose database, verifying row counts, B15 NULL mapping, and jsonb
+// docker-compose database, verifying row counts, NULL mapping, and jsonb
 // containment.
 func TestWriterAgainstRealPostgres(t *testing.T) {
 	ctx := context.Background()
@@ -46,7 +46,7 @@ func TestWriterAgainstRealPostgres(t *testing.T) {
 	for _, rec := range []record{full, empty, third} {
 		wl.ch <- rec
 	}
-	wl.Close() // drain, final flush, pool close (B13)
+	wl.Close() // drain, final flush, pool close
 
 	pool, err := pgxpool.New(ctx, integrationDBURL)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestWriterAgainstRealPostgres(t *testing.T) {
 		t.Fatalf("rows = %d, want 3 (Close must flush the remainder)", n)
 	}
 
-	// NULL mapping (B15) on the sparse row.
+	// NULL mapping on the sparse row.
 	var statusNull, refNull, headersNull, bodyNull, tagsNull, ipNull bool
 	var consumer string
 	err = pool.QueryRow(ctx,

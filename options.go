@@ -75,7 +75,7 @@ func WithAutoMigrate(b bool) Option {
 }
 
 // WithDefaultConsumer stamps every record unless overridden — the lowest
-// rung of the B10 precedence chain.
+// rung of the consumer precedence chain.
 func WithDefaultConsumer(c string) Option {
 	return func(o *options) { o.consumer = c }
 }

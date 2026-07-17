@@ -3,7 +3,7 @@ package wirelog
 import "testing"
 
 // TestDefaultNormalizer checks that ID-like path segments collapse to {id}
-// and everything else passes through untouched (B14).
+// and everything else passes through untouched.
 func TestDefaultNormalizer(t *testing.T) {
 	tests := []struct {
 		name string

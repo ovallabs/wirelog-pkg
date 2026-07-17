@@ -74,7 +74,7 @@ func TestOperationOverwriteLastWins(t *testing.T) {
 	}
 }
 
-// TestResolveConsumerPrecedence exercises the full B10 chain: ctx beats
+// TestResolveConsumerPrecedence exercises the full precedence chain: ctx beats
 // Config beats the instance default.
 func TestResolveConsumerPrecedence(t *testing.T) {
 	ctxWith := WithConsumer(context.Background(), "ctx-consumer")

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// TestNewCaptureNormalizesLiteralConfig checks the Q6 mint rules: defaults
+// TestNewCaptureNormalizesLiteralConfig checks mint normalization: defaults
 // for MaxBodyBytes and PathNormalizer, empty MaskFields left empty.
 func TestNewCaptureNormalizesLiteralConfig(t *testing.T) {
 	c := newCapture(Config{Provider: "magma"}, "")
@@ -42,7 +42,7 @@ func TestNewCaptureDoesNotMutateCallerConfig(t *testing.T) {
 }
 
 // TestBuildRecordSuccessFields verifies the full field mapping of a
-// successful exchange, including masked headers and bodies (B1).
+// successful exchange, including masked headers and bodies.
 func TestBuildRecordSuccessFields(t *testing.T) {
 	c := newCapture(NewConfig("magma", WithCaptureBodies(true)), "inst")
 	ctx := WithRef(context.Background(), "ref-9")
@@ -70,7 +70,7 @@ func TestBuildRecordSuccessFields(t *testing.T) {
 	})
 
 	if rec.remoteIP != "34.120.8.4" {
-		t.Errorf("remoteIP = %q, want 34.120.8.4 passed through (B19)", rec.remoteIP)
+		t.Errorf("remoteIP = %q, want 34.120.8.4 passed through", rec.remoteIP)
 	}
 
 	if rec.provider != "magma" || rec.consumer != "inst" {
@@ -146,7 +146,7 @@ func TestBuildRecordErrorPath(t *testing.T) {
 	}
 }
 
-// TestBuildRecordConsumerPrecedence checks B10 resolution through
+// TestBuildRecordConsumerPrecedence checks consumer resolution through
 // buildRecord at all three levels.
 func TestBuildRecordConsumerPrecedence(t *testing.T) {
 	req := func(ctx context.Context) *http.Request {
@@ -178,7 +178,7 @@ func TestBuildRecordConsumerPrecedence(t *testing.T) {
 	}
 }
 
-// TestRequestSizeFallbacks checks the B9 chain for requests: actual snapshot
+// TestRequestSizeFallbacks checks the size fallback chain for requests: actual snapshot
 // bytes, then ContentLength, then 0.
 func TestRequestSizeFallbacks(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "http://x", nil)
@@ -195,7 +195,7 @@ func TestRequestSizeFallbacks(t *testing.T) {
 	}
 }
 
-// TestResponseSizeFallbacks checks the B9 chain for responses: actual bytes,
+// TestResponseSizeFallbacks checks the size fallback chain for responses: actual bytes,
 // then Content-Length, then 0 for chunked or missing responses.
 func TestResponseSizeFallbacks(t *testing.T) {
 	resp := &http.Response{ContentLength: 99}

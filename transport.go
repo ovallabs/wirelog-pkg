@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-// transport captures each exchange and forwards it untouched (B2). All its
+// transport captures each exchange and forwards it untouched. All its
 // fields are set at mint and never written afterwards, so one instance is
-// safe for concurrent use (B17).
+// safe for concurrent use.
 type transport struct {
 	next http.RoundTripper
 	*capture
@@ -30,10 +30,10 @@ func newTransport(next http.RoundTripper, c *capture, ch chan<- record, dropped 
 
 // RoundTrip implements http.RoundTripper. It returns the wrapped transport's
 // response and error unmodified, with only resp.Body swapped for a reader
-// yielding identical bytes (B2/B3).
+// yielding identical bytes.
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	path := req.URL.Path
-	// B8: excluded paths short-circuit before ANY work, including timing.
+	// Excluded paths short-circuit before ANY work, including timing.
 	if matchAny(path, t.cfg.ExcludePaths) {
 		return t.next.RoundTrip(req)
 	}
@@ -45,7 +45,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	// Per-request trace state stays on the stack, never on the transport
-	// (B17); atomic.Value because httptrace callbacks may run concurrently.
+	//; atomic.Value because httptrace callbacks may run concurrently.
 	var remoteAddr atomic.Value
 	connTrace := &httptrace.ClientTrace{
 		GotConn: func(info httptrace.GotConnInfo) {
@@ -76,7 +76,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // remoteIPFrom extracts the IP from a stored "ip:port" dial address,
-// returning "" when no connection was ever established (B19).
+// returning "" when no connection was ever established.
 func remoteIPFrom(stored any) string {
 	addr, _ := stored.(string)
 	if addr == "" {
@@ -90,7 +90,7 @@ func remoteIPFrom(stored any) string {
 
 // enqueueRecord builds and enqueues the record for one exchange. It recovers
 // from panicking user callbacks (Masker, PathNormalizer) so capture can never
-// fail the provider call (B2); the abandoned record is counted as dropped.
+// fail the provider call; the abandoned record is counted as dropped.
 func (t *transport) enqueueRecord(x exchange) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -98,7 +98,7 @@ func (t *transport) enqueueRecord(x exchange) {
 		}
 	}()
 	rec := t.buildRecord(x)
-	// B2: enqueue never blocks — a full buffer drops and counts the record;
+	// Enqueue never blocks — a full buffer drops and counts the record;
 	// the letter itself always goes out.
 	select {
 	case t.ch <- rec:
@@ -108,7 +108,7 @@ func (t *transport) enqueueRecord(x exchange) {
 }
 
 // matchAny reports whether any non-empty needle is a substring of path;
-// matching never considers the query string (B8).
+// matching never considers the query string.
 func matchAny(path string, needles []string) bool {
 	for _, n := range needles {
 		if n != "" && strings.Contains(path, n) {

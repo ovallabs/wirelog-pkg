@@ -46,8 +46,8 @@ func New(ctx context.Context, dbURL string, opts ...Option) (*Wirelog, error) {
 	return wl, nil
 }
 
-// Close drains the queue, performs a final flush, then closes the pool (B13).
-// Safe on a nil receiver — matching HTTPClient's degradation contract (B11) —
+// Close drains the queue, performs a final flush, then closes the pool.
+// Safe on a nil receiver — matching HTTPClient's degradation contract —
 // and safe to call more than once.
 func (wl *Wirelog) Close() {
 	if wl == nil {
@@ -60,7 +60,7 @@ func (wl *Wirelog) Close() {
 }
 
 // Dropped reports records that never reached the database: non-blocking
-// enqueue drops plus insert-failure batch drops (B2, Q4 ruling). A nil
+// enqueue drops plus insert-failure batch drops. A nil
 // receiver reports 0.
 func (wl *Wirelog) Dropped() int64 {
 	if wl == nil {
@@ -70,9 +70,9 @@ func (wl *Wirelog) Dropped() int64 {
 }
 
 // HTTPClient mints a client whose transport chain is wirelog → otelhttp →
-// http.DefaultTransport (B12), normalizing cfg at mint. On a nil receiver it
+// http.DefaultTransport, normalizing cfg at mint. On a nil receiver it
 // returns a plain otelhttp client, so services that boot despite a wirelog
-// init failure degrade silently (B11).
+// init failure degrade silently.
 func (wl *Wirelog) HTTPClient(cfg Config) *http.Client {
 	base := otelhttp.NewTransport(http.DefaultTransport)
 	if wl == nil {

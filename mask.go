@@ -10,10 +10,10 @@ import (
 )
 
 // maskedValue replaces every denied header and, absent a custom Masker,
-// every matched body field (B1).
+// every matched body field.
 const maskedValue = "•••"
 
-// builtinDenyHeaders are always masked, case-insensitively, on every record (B5).
+// builtinDenyHeaders are always masked, case-insensitively, on every record.
 var builtinDenyHeaders = []string{
 	"authorization", "proxy-authorization", "cookie", "set-cookie",
 	"x-api-key", "api-key", "x-auth-token", "x-signature",
@@ -41,7 +41,7 @@ func maskFieldSet(fields []string) map[string]struct{} {
 	return set
 }
 
-// maskHeaders returns a masked copy; the source map is never mutated (B5).
+// maskHeaders returns a masked copy; the source map is never mutated.
 // Denied headers always become the mask constant — a custom Masker never
 // applies here. Empty input returns nil so the jsonb column maps to NULL.
 func maskHeaders(src http.Header, deny map[string]struct{}) map[string][]string {
@@ -59,7 +59,7 @@ func maskHeaders(src http.Header, deny map[string]struct{}) map[string][]string 
 	return out
 }
 
-// maskBody truncates to maxBytes BEFORE json.Unmarshal (B4), masks matched
+// maskBody truncates to maxBytes BEFORE json.Unmarshal, masks matched
 // fields, and returns valid JSON bytes or nil for an empty body.
 func maskBody(body []byte, maxBytes int, fields map[string]struct{}, masker Masker) []byte {
 	if len(body) == 0 {
@@ -77,13 +77,13 @@ func maskBody(body []byte, maxBytes int, fields map[string]struct{}, masker Mask
 	masked, err := json.Marshal(maskWalk(decoded, fields, masker))
 	if err != nil {
 		// custom Masker returned an unmarshalable value — remask with the
-		// constant rather than fall back to raw bytes and leak (B1)
+		// constant rather than fall back to raw bytes and leak
 		masked, _ = json.Marshal(maskWalk(decoded, fields, nil))
 	}
 	return masked
 }
 
-// rawWrap packages non-JSON or broken-by-truncation bytes as valid JSON (B4).
+// rawWrap packages non-JSON or broken-by-truncation bytes as valid JSON.
 func rawWrap(body []byte, truncated bool) []byte {
 	wrapper := map[string]any{"_raw": string(body)}
 	if truncated {
@@ -94,7 +94,7 @@ func rawWrap(body []byte, truncated bool) []byte {
 }
 
 // maskWalk recurses through decoded JSON; on a key match it replaces the
-// VALUE wholesale and never recurses into the matched subtree (B6). The
+// VALUE wholesale and never recurses into the matched subtree. The
 // value was decoded locally, so in-place mutation is safe.
 func maskWalk(value any, fields map[string]struct{}, masker Masker) any {
 	switch node := value.(type) {

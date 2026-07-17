@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-// TestHTTPClientNilReceiverReturnsPlainClient enforces B11: a nil *Wirelog
+// TestHTTPClientNilReceiverReturnsPlainClient checks a nil *Wirelog
 // still mints a working plain otelhttp client.
 func TestHTTPClientNilReceiverReturnsPlainClient(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +21,7 @@ func TestHTTPClientNilReceiverReturnsPlainClient(t *testing.T) {
 	var wl *Wirelog
 	client := wl.HTTPClient(NewConfig("magma"))
 	if client == nil {
-		t.Fatal("nil receiver must still return a usable client (B11)")
+		t.Fatal("nil receiver must still return a usable client")
 	}
 	if _, ok := client.Transport.(*otelhttp.Transport); !ok {
 		t.Fatalf("nil-receiver transport = %T, want plain *otelhttp.Transport", client.Transport)
@@ -37,36 +37,36 @@ func TestHTTPClientNilReceiverReturnsPlainClient(t *testing.T) {
 	}
 }
 
-// TestHTTPClientChainOrder verifies B12 by type assertion: wirelog wraps
+// TestHTTPClientChainOrder verifies by type assertion that wirelog wraps
 // otelhttp wraps http.DefaultTransport.
 func TestHTTPClientChainOrder(t *testing.T) {
 	wl := &Wirelog{ch: make(chan record, 1), opts: defaultOptions()}
 	client := wl.HTTPClient(NewConfig("magma"))
 	tp, ok := client.Transport.(*transport)
 	if !ok {
-		t.Fatalf("outermost transport = %T, want wirelog *transport (B12)", client.Transport)
+		t.Fatalf("outermost transport = %T, want wirelog *transport", client.Transport)
 	}
 	if _, ok := tp.next.(*otelhttp.Transport); !ok {
-		t.Fatalf("wrapped transport = %T, want *otelhttp.Transport (B12: wirelog → otelhttp → default)", tp.next)
+		t.Fatalf("wrapped transport = %T, want *otelhttp.Transport (chain: wirelog → otelhttp → default)", tp.next)
 	}
 }
 
-// TestHTTPClientNormalizesLiteralConfigAtMint checks the Q6 rules apply when
-// a literal Config reaches HTTPClient (B11).
+// TestHTTPClientNormalizesLiteralConfigAtMint checks normalization applies when
+// a literal Config reaches HTTPClient.
 func TestHTTPClientNormalizesLiteralConfigAtMint(t *testing.T) {
 	wl := &Wirelog{ch: make(chan record, 1), opts: defaultOptions()}
 	client := wl.HTTPClient(Config{Provider: "magma"})
 	tp := client.Transport.(*transport)
 	if tp.cfg.MaxBodyBytes != 16384 || tp.cfg.PathNormalizer == nil {
-		t.Errorf("literal Config not normalized at mint (B11): %+v", tp.cfg)
+		t.Errorf("literal Config not normalized at mint: %+v", tp.cfg)
 	}
 	if len(tp.fields) != 0 {
 		t.Error("literal Config must keep its empty mask list")
 	}
 }
 
-// TestHTTPClientEnqueueIncrementsDroppedWhenFull enforces B2 through the
-// public API: full-buffer drops count in Dropped and calls never fail.
+// TestHTTPClientEnqueueIncrementsDroppedWhenFull checks, through the
+// public API, that full-buffer drops count in Dropped and calls never fail.
 func TestHTTPClientEnqueueIncrementsDroppedWhenFull(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -78,7 +78,7 @@ func TestHTTPClientEnqueueIncrementsDroppedWhenFull(t *testing.T) {
 	for range 3 {
 		resp, err := client.Get(srv.URL + "/x")
 		if err != nil {
-			t.Fatalf("calls must never fail on a full buffer (B2): %v", err)
+			t.Fatalf("calls must never fail on a full buffer: %v", err)
 		}
 		_, _ = io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
@@ -90,7 +90,7 @@ func TestHTTPClientEnqueueIncrementsDroppedWhenFull(t *testing.T) {
 
 // TestNilReceiverCloseAndDropped enforces the README's degraded pattern: a
 // service holding a nil *Wirelog can defer Close and poll Dropped without
-// panicking (B11).
+// panicking.
 func TestNilReceiverCloseAndDropped(t *testing.T) {
 	var wl *Wirelog
 	wl.Close() // must not panic

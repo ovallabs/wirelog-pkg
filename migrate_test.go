@@ -10,7 +10,7 @@ import (
 )
 
 // recordingExecer captures executed SQL so migration is testable without a
-// database (Q8 pattern).
+// database.
 type recordingExecer struct {
 	sqls []string
 	err  error

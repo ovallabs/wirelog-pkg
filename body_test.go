@@ -23,7 +23,7 @@ func (c *closeTracker) Close() error {
 	return nil
 }
 
-// TestSnapshotRequestBodyLeavesOriginalReadable enforces B3: snapshots come
+// TestSnapshotRequestBodyLeavesOriginalReadable checks snapshots come
 // from GetBody only, leaving req.Body untouched and GetBody reusable.
 func TestSnapshotRequestBodyLeavesOriginalReadable(t *testing.T) {
 	payload := `{"msisdn":"+237670000001","amount":100}`
@@ -124,7 +124,7 @@ func TestCopyBodyReadErrorReplayedToCaller(t *testing.T) {
 	}
 }
 
-// TestSwapBodyCallerGetsIdenticalBytesWhileCaptureTruncates enforces B3
+// TestSwapBodyCallerGetsIdenticalBytesWhileCaptureTruncates checks the swap
 // end-to-end: the caller reads the full body byte-for-byte while the stored
 // copy is truncated and marked.
 func TestSwapBodyCallerGetsIdenticalBytesWhileCaptureTruncates(t *testing.T) {

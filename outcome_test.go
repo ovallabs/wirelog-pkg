@@ -25,7 +25,7 @@ func (timeoutNetErr) Timeout() bool { return true }
 // Temporary satisfies net.Error; the value is irrelevant to classification.
 func (timeoutNetErr) Temporary() bool { return false }
 
-// TestClassify tables every B7 mapping: 2xx, provider errors, wrapped and
+// TestClassify tables every outcome mapping: 2xx, provider errors, wrapped and
 // naked timeouts, and network failures.
 func TestClassify(t *testing.T) {
 	connRefused := &net.OpError{

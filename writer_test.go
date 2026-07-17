@@ -14,7 +14,7 @@ import (
 // pgInserter must satisfy the seam the writer runs against.
 var _ inserter = (*pgInserter)(nil)
 
-// recordingInserter is the in-package fake behind the inserter seam (Q8).
+// recordingInserter is the in-package fake behind the inserter seam.
 type recordingInserter struct {
 	mu      sync.Mutex
 	batches [][]record
@@ -76,7 +76,7 @@ func waitFor(t *testing.T, cond func() bool, msg string) {
 }
 
 // TestWriterFlushesAtBatchSize checks N records produce ceil(N/batch)
-// inserts at exactly the batch size (B13).
+// inserts at exactly the batch size.
 func TestWriterFlushesAtBatchSize(t *testing.T) {
 	ins := &recordingInserter{}
 	ch, w, _ := startWriter(ins, 10, time.Hour, nopLogger{})
@@ -91,7 +91,7 @@ func TestWriterFlushesAtBatchSize(t *testing.T) {
 }
 
 // TestWriterFlushesPartialBatchOnInterval checks the ticker flushes a
-// partial batch without waiting for batch size (B13).
+// partial batch without waiting for batch size.
 func TestWriterFlushesPartialBatchOnInterval(t *testing.T) {
 	ins := &recordingInserter{}
 	ch, w, _ := startWriter(ins, 100, 20*time.Millisecond, nopLogger{})
@@ -105,7 +105,7 @@ func TestWriterFlushesPartialBatchOnInterval(t *testing.T) {
 	}
 }
 
-// TestWriterCloseDrainsAndFlushesRemainder enforces B13's shutdown order:
+// TestWriterCloseDrainsAndFlushesRemainder checks the shutdown order:
 // drain, final flush, goroutine exit.
 func TestWriterCloseDrainsAndFlushesRemainder(t *testing.T) {
 	ins := &recordingInserter{}
@@ -113,7 +113,7 @@ func TestWriterCloseDrainsAndFlushesRemainder(t *testing.T) {
 	for range 7 {
 		ch <- record{provider: "magma", outcome: outcomeSuccess}
 	}
-	w.closeAndDrain() // returning proves the goroutine exited (B13)
+	w.closeAndDrain() // returning proves the goroutine exited
 	if sizes := ins.batchSizes(); len(sizes) != 1 || sizes[0] != 7 {
 		t.Fatalf("batches after close = %v, want [7]", sizes)
 	}
@@ -125,7 +125,7 @@ func TestWriterCloseDrainsAndFlushesRemainder(t *testing.T) {
 }
 
 // TestWriterInsertFailureDropsBatchOnce checks a failed insert drops the
-// batch with exactly one log line and adds len(batch) to Dropped (B2, Q4).
+// batch with exactly one log line and adds len(batch) to Dropped.
 func TestWriterInsertFailureDropsBatchOnce(t *testing.T) {
 	ins := &recordingInserter{err: errors.New("connection lost")}
 	log := &recordingLogger{}
@@ -133,7 +133,7 @@ func TestWriterInsertFailureDropsBatchOnce(t *testing.T) {
 	for range 4 {
 		ch <- record{provider: "magma", outcome: outcomeSuccess}
 	}
-	waitFor(t, func() bool { return dropped.Load() == 4 }, "insert failure never counted in Dropped (Q4)")
+	waitFor(t, func() bool { return dropped.Load() == 4 }, "insert failure never counted in Dropped")
 	w.closeAndDrain()
 	log.mu.Lock()
 	defer log.mu.Unlock()
@@ -146,7 +146,7 @@ func TestWriterInsertFailureDropsBatchOnce(t *testing.T) {
 }
 
 // TestBuildInsertPlaceholdersAndNullMapping checks the rendered SQL uses
-// numbered placeholders only and args follow the B15 NULL-mapping rules.
+// numbered placeholders only and args follow the NULL-mapping rules.
 func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	full := record{
 		provider: "magma", consumer: "demo", operation: "payout.execute",
@@ -176,7 +176,7 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	}
 	for _, leak := range []string{"magma", "payout", "boom"} {
 		if strings.Contains(sql, leak) {
-			t.Errorf("SQL contains interpolated value %q; placeholders only (B13)", leak)
+			t.Errorf("SQL contains interpolated value %q; placeholders only", leak)
 		}
 	}
 	if len(args) != 2*colCount {
@@ -196,7 +196,7 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	}
 	for _, idx := range []int{6, 7, 12, 13, 14, 15, 16, 17, 18, 19} {
 		if e[idx] != nil {
-			t.Errorf("empty row arg %d = %v, want SQL NULL (B15)", idx, e[idx])
+			t.Errorf("empty row arg %d = %v, want SQL NULL", idx, e[idx])
 		}
 	}
 	if e[9] != int64(0) || e[10] != int64(0) || e[11] != int64(0) {
@@ -205,7 +205,7 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 }
 
 // TestJSONTagsUnmarshalableBecomesNull checks tags that cannot marshal map
-// to NULL so the jsonb column never receives invalid JSON (B4).
+// to NULL so the jsonb column never receives invalid JSON.
 func TestJSONTagsUnmarshalableBecomesNull(t *testing.T) {
 	if got := jsonTags(map[string]any{"bad": make(chan int)}); got != nil {
 		t.Errorf("jsonTags(chan) = %v, want nil (jsonb gets valid JSON or NULL)", got)

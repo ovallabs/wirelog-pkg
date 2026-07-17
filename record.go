@@ -32,15 +32,15 @@ type record struct {
 	tags            map[string]any
 }
 
-// capture is the minted, read-only state shared by every request (B17).
+// capture is the minted, read-only state shared by every request.
 type capture struct {
 	cfg      Config
 	deny     map[string]struct{}
 	fields   map[string]struct{}
-	consumer string // instance default, lowest B10 precedence
+	consumer string // instance default, lowest consumer precedence
 }
 
-// newCapture normalizes cfg at mint (B11): non-positive MaxBodyBytes and nil
+// newCapture normalizes cfg at mint: non-positive MaxBodyBytes and nil
 // PathNormalizer get defaults; empty MaskFields deliberately stays empty
 // because literal Config construction opts out of the shared defaults.
 func newCapture(cfg Config, instanceConsumer string) *capture {
@@ -66,11 +66,11 @@ type exchange struct {
 	latency  time.Duration
 	reqBody  []byte // raw request snapshot; nil when bodies are not captured
 	respBody []byte // full response bytes; nil when bodies are not captured
-	remoteIP string // resolved provider IP; "" when no connection was made (B19)
+	remoteIP string // resolved provider IP; "" when no connection was made
 }
 
 // buildRecord assembles the persisted record; masking happens here, inside
-// RoundTrip and before enqueue (B1).
+// RoundTrip and before enqueue.
 func (c *capture) buildRecord(x exchange) record {
 	ctx := x.req.Context()
 	rec := record{
@@ -103,7 +103,7 @@ func (c *capture) buildRecord(x exchange) record {
 }
 
 // requestSize prefers actual snapshot bytes and falls back to
-// req.ContentLength when the body was not read; 0 when unknown (B9).
+// req.ContentLength when the body was not read; 0 when unknown.
 func requestSize(req *http.Request, snapshot []byte) int64 {
 	if snapshot != nil {
 		return int64(len(snapshot))
@@ -115,7 +115,7 @@ func requestSize(req *http.Request, snapshot []byte) int64 {
 }
 
 // responseSize prefers actual bytes read and falls back to Content-Length
-// when the body was not read; 0 when unknown or chunked (B9).
+// when the body was not read; 0 when unknown or chunked.
 func responseSize(resp *http.Response, body []byte) int64 {
 	if body != nil {
 		return int64(len(body))
