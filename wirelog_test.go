@@ -88,6 +88,17 @@ func TestHTTPClientEnqueueIncrementsDroppedWhenFull(t *testing.T) {
 	}
 }
 
+// TestNilReceiverCloseAndDropped enforces the README's degraded pattern: a
+// service holding a nil *Wirelog can defer Close and poll Dropped without
+// panicking (B11).
+func TestNilReceiverCloseAndDropped(t *testing.T) {
+	var wl *Wirelog
+	wl.Close() // must not panic
+	if got := wl.Dropped(); got != 0 {
+		t.Errorf("nil Dropped() = %d, want 0", got)
+	}
+}
+
 // TestNewRejectsInvalidURL checks New fails fast on an unparseable dbURL.
 func TestNewRejectsInvalidURL(t *testing.T) {
 	if _, err := New(context.Background(), "://not-a-url"); err == nil {

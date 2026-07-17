@@ -47,8 +47,12 @@ func New(ctx context.Context, dbURL string, opts ...Option) (*Wirelog, error) {
 }
 
 // Close drains the queue, performs a final flush, then closes the pool (B13).
-// Safe to call more than once.
+// Safe on a nil receiver — matching HTTPClient's degradation contract (B11) —
+// and safe to call more than once.
 func (wl *Wirelog) Close() {
+	if wl == nil {
+		return
+	}
 	wl.closeOnce.Do(func() {
 		wl.w.closeAndDrain()
 		wl.pool.Close()
@@ -56,8 +60,14 @@ func (wl *Wirelog) Close() {
 }
 
 // Dropped reports records that never reached the database: non-blocking
-// enqueue drops plus insert-failure batch drops (B2, Q4 ruling).
-func (wl *Wirelog) Dropped() int64 { return wl.dropped.Load() }
+// enqueue drops plus insert-failure batch drops (B2, Q4 ruling). A nil
+// receiver reports 0.
+func (wl *Wirelog) Dropped() int64 {
+	if wl == nil {
+		return 0
+	}
+	return wl.dropped.Load()
+}
 
 // HTTPClient mints a client whose transport chain is wirelog → otelhttp →
 // http.DefaultTransport (B12), normalizing cfg at mint. On a nil receiver it
