@@ -143,7 +143,7 @@ func TestSwapBodyCallerGetsIdenticalBytesWhileCaptureTruncates(t *testing.T) {
 		t.Fatalf("caller received %d bytes, want the original %d byte-for-byte", len(got), len(big))
 	}
 
-	stored := maskBody(full, 1024, maskFieldSet(nil), nil)
+	stored := maskBody(full, 1024, maskFieldSet(nil), nil, "")
 	var v map[string]any
 	if err := json.Unmarshal(stored, &v); err != nil {
 		t.Fatalf("stored copy is not valid JSON: %v", err)

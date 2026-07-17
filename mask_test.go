@@ -73,7 +73,7 @@ func TestMaskHeadersEmptyIsNil(t *testing.T) {
 // failing the test if the output is not valid JSON.
 func maskJSON(t *testing.T, body string, maxBytes int, m Masker) map[string]any {
 	t.Helper()
-	out := maskBody([]byte(body), maxBytes, maskFieldSet(defaultMaskFields), m)
+	out := maskBody([]byte(body), maxBytes, maskFieldSet(defaultMaskFields), m, "")
 	var v map[string]any
 	if err := json.Unmarshal(out, &v); err != nil {
 		t.Fatalf("maskBody output is not valid JSON: %v (%s)", err, out)
@@ -153,7 +153,7 @@ func TestMaskBodyCustomMasker(t *testing.T) {
 // TestMaskBodyNonJSONWrap checks non-JSON bodies wrap as {"_raw": ...}
 // without a spurious truncation marker.
 func TestMaskBodyNonJSONWrap(t *testing.T) {
-	out := maskBody([]byte("plain text, not json"), 16384, maskFieldSet(nil), nil)
+	out := maskBody([]byte("plain text, not json"), 16384, maskFieldSet(nil), nil, "")
 	var v map[string]any
 	if err := json.Unmarshal(out, &v); err != nil {
 		t.Fatalf("wrap is not valid JSON: %v", err)
@@ -166,11 +166,65 @@ func TestMaskBodyNonJSONWrap(t *testing.T) {
 	}
 }
 
+// TestMaskBodyFormEncodedMasksMatchedKeys checks form-encoded bodies decode
+// and mask matched keys instead of persisting raw credentials, while other
+// content types keep the raw wrap.
+func TestMaskBodyFormEncodedMasksMatchedKeys(t *testing.T) {
+	body := "msisdn=%2B237670000001&password=hunter2&amount=100&channel=wave&channel=momo"
+	out := maskBody([]byte(body), 16384, maskFieldSet(defaultMaskFields), nil, "application/x-www-form-urlencoded; charset=utf-8")
+	var v map[string]any
+	if err := json.Unmarshal(out, &v); err != nil {
+		t.Fatalf("form wrap is not valid JSON: %v", err)
+	}
+	form, ok := v["_form"].(map[string]any)
+	if !ok {
+		t.Fatalf("output = %s, want a _form object", out)
+	}
+	if form["msisdn"] != maskedValue || form["password"] != maskedValue {
+		t.Errorf("form = %v, want msisdn and password masked", form)
+	}
+	if form["amount"] != "100" {
+		t.Errorf("amount = %v, want unmasked 100", form["amount"])
+	}
+	if !reflect.DeepEqual(form["channel"], []any{"wave", "momo"}) {
+		t.Errorf("channel = %v, want both repeated values kept", form["channel"])
+	}
+	if strings.Contains(string(out), "237670000001") || strings.Contains(string(out), "hunter2") {
+		t.Errorf("raw credentials leaked into the stored copy: %s", out)
+	}
+
+	rawOut := maskBody([]byte(body), 16384, maskFieldSet(defaultMaskFields), nil, "text/plain")
+	var raw map[string]any
+	if err := json.Unmarshal(rawOut, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, hasRaw := raw["_raw"]; !hasRaw {
+		t.Errorf("non-form content type = %s, want the _raw wrap", rawOut)
+	}
+}
+
+// TestMaskBodyFormEncodedTruncationMarker checks a truncated form still masks
+// and carries the truncation marker.
+func TestMaskBodyFormEncodedTruncationMarker(t *testing.T) {
+	body := "password=hunter2&note=" + strings.Repeat("x", 100)
+	out := maskBody([]byte(body), 30, maskFieldSet(defaultMaskFields), nil, "application/x-www-form-urlencoded")
+	var v map[string]any
+	if err := json.Unmarshal(out, &v); err != nil {
+		t.Fatalf("form wrap is not valid JSON: %v", err)
+	}
+	if v["_truncated"] != true {
+		t.Errorf("_truncated = %v, want true", v["_truncated"])
+	}
+	if form, ok := v["_form"].(map[string]any); !ok || form["password"] != maskedValue {
+		t.Errorf("form = %v, want password masked despite truncation", v["_form"])
+	}
+}
+
 // TestMaskBodyTruncationMarker checks bytes are cut BEFORE parsing and the
 // wrap carries _truncated plus exactly the first maxBytes bytes.
 func TestMaskBodyTruncationMarker(t *testing.T) {
 	body := `{"data": "` + strings.Repeat("x", 100) + `"}`
-	out := maskBody([]byte(body), 20, maskFieldSet(nil), nil)
+	out := maskBody([]byte(body), 20, maskFieldSet(nil), nil, "")
 	var v map[string]any
 	if err := json.Unmarshal(out, &v); err != nil {
 		t.Fatalf("wrap is not valid JSON: %v", err)
@@ -186,10 +240,10 @@ func TestMaskBodyTruncationMarker(t *testing.T) {
 // TestMaskBodyEmptyIsNil checks empty bodies produce nil so the jsonb column
 // stores NULL.
 func TestMaskBodyEmptyIsNil(t *testing.T) {
-	if out := maskBody(nil, 16384, maskFieldSet(nil), nil); out != nil {
+	if out := maskBody(nil, 16384, maskFieldSet(nil), nil, ""); out != nil {
 		t.Errorf("maskBody(nil) = %s, want nil", out)
 	}
-	if out := maskBody([]byte{}, 16384, maskFieldSet(nil), nil); out != nil {
+	if out := maskBody([]byte{}, 16384, maskFieldSet(nil), nil, ""); out != nil {
 		t.Errorf("maskBody(empty) = %s, want nil", out)
 	}
 }
@@ -198,7 +252,7 @@ func TestMaskBodyEmptyIsNil(t *testing.T) {
 // unmarshalable value falls back to constant masking, never raw bytes.
 func TestMaskBodyUnmarshalableMaskerResultRemasks(t *testing.T) {
 	m := func(field string, value any) any { return make(chan int) }
-	out := maskBody([]byte(`{"msisdn": "+237670000001"}`), 16384, maskFieldSet(defaultMaskFields), m)
+	out := maskBody([]byte(`{"msisdn": "+237670000001"}`), 16384, maskFieldSet(defaultMaskFields), m, "")
 	var v map[string]any
 	if err := json.Unmarshal(out, &v); err != nil {
 		t.Fatalf("fallback is not valid JSON: %v", err)

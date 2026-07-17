@@ -88,13 +88,13 @@ func (c *capture) buildRecord(x exchange) record {
 		internalRef:    refFrom(ctx),
 		idempotencyKey: idempotencyKeyFrom(ctx),
 		requestHeaders: maskHeaders(x.req.Header, c.deny),
-		requestBody:    maskBody(x.reqBody, c.cfg.MaxBodyBytes, c.fields, c.cfg.Masker),
+		requestBody:    maskBody(x.reqBody, c.cfg.MaxBodyBytes, c.fields, c.cfg.Masker, x.req.Header.Get("Content-Type")),
 		tags:           tagsFrom(ctx),
 	}
 	if x.resp != nil {
 		rec.statusCode = x.resp.StatusCode
 		rec.responseHeaders = maskHeaders(x.resp.Header, c.deny)
-		rec.responseBody = maskBody(x.respBody, c.cfg.MaxBodyBytes, c.fields, c.cfg.Masker)
+		rec.responseBody = maskBody(x.respBody, c.cfg.MaxBodyBytes, c.fields, c.cfg.Masker, x.resp.Header.Get("Content-Type"))
 	}
 	if x.err != nil {
 		rec.callErr = x.err.Error()

@@ -6,6 +6,7 @@ package wirelog
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -60,8 +61,10 @@ func maskHeaders(src http.Header, deny map[string]struct{}) map[string][]string 
 }
 
 // maskBody truncates to maxBytes BEFORE json.Unmarshal, masks matched
-// fields, and returns valid JSON bytes or nil for an empty body.
-func maskBody(body []byte, maxBytes int, fields map[string]struct{}, masker Masker) []byte {
+// fields, and returns valid JSON bytes or nil for an empty body. Non-JSON
+// form-encoded bodies (per contentType) decode as a form so matched keys
+// still mask instead of persisting raw.
+func maskBody(body []byte, maxBytes int, fields map[string]struct{}, masker Masker, contentType string) []byte {
 	if len(body) == 0 {
 		return nil
 	}
@@ -72,6 +75,11 @@ func maskBody(body []byte, maxBytes int, fields map[string]struct{}, masker Mask
 	}
 	var decoded any
 	if err := json.Unmarshal(body, &decoded); err != nil {
+		if strings.Contains(strings.ToLower(contentType), "x-www-form-urlencoded") {
+			if maskedForm, ok := maskForm(body, fields); ok {
+				return formWrap(maskedForm, truncated)
+			}
+		}
 		return rawWrap(body, truncated)
 	}
 	masked, err := json.Marshal(maskWalk(decoded, fields, masker))
@@ -81,6 +89,39 @@ func maskBody(body []byte, maxBytes int, fields map[string]struct{}, masker Mask
 		masked, _ = json.Marshal(maskWalk(decoded, fields, nil))
 	}
 	return masked
+}
+
+// maskForm decodes form-encoded bytes and replaces the values of matched
+// keys with the mask constant (the custom Masker is JSON-body-only, like
+// headers); ok is false when the bytes do not parse as a form.
+func maskForm(body []byte, fields map[string]struct{}) (map[string]any, bool) {
+	values, err := url.ParseQuery(string(body))
+	if err != nil || len(values) == 0 {
+		return nil, false
+	}
+	form := make(map[string]any, len(values))
+	for key, vals := range values {
+		if _, matched := fields[strings.ToLower(key)]; matched {
+			form[key] = maskedValue
+			continue
+		}
+		if len(vals) == 1 {
+			form[key] = vals[0]
+		} else {
+			form[key] = vals
+		}
+	}
+	return form, true
+}
+
+// formWrap packages a masked form as valid JSON under "_form".
+func formWrap(form map[string]any, truncated bool) []byte {
+	wrapper := map[string]any{"_form": form}
+	if truncated {
+		wrapper["_truncated"] = true
+	}
+	wrapped, _ := json.Marshal(wrapper) // string keys/values never fail to marshal
+	return wrapped
 }
 
 // rawWrap packages non-JSON or broken-by-truncation bytes as valid JSON.
