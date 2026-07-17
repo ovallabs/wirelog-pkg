@@ -24,9 +24,9 @@ type record struct {
 	responseSize    int64
 	internalRef     string
 	idempotencyKey  string
-	requestHeaders  map[string][]string
+	requestHeaders  map[string]string
 	requestBody     []byte
-	responseHeaders map[string][]string
+	responseHeaders map[string]string
 	responseBody    []byte
 	callErr         string
 	tags            map[string]any

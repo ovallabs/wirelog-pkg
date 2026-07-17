@@ -35,9 +35,9 @@ func TestWriterAgainstRealPostgres(t *testing.T) {
 		remoteIP:   "10.0.0.9",
 		statusCode: 200, outcome: outcomeSuccess, latencyMS: 42, requestSize: 10, responseSize: 20,
 		internalRef: "ref-1", idempotencyKey: "idem-1",
-		requestHeaders:  map[string][]string{"Content-Type": {"application/json"}},
+		requestHeaders:  map[string]string{"Content-Type": "application/json"},
 		requestBody:     []byte(`{"a":1}`),
-		responseHeaders: map[string][]string{"Content-Type": {"application/json"}},
+		responseHeaders: map[string]string{"Content-Type": "application/json"},
 		responseBody:    []byte(`{"b":2}`),
 		tags:            map[string]any{"k": "v"},
 	}

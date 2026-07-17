@@ -154,9 +154,9 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 		remoteIP:   "10.1.2.3",
 		statusCode: 200, outcome: outcomeSuccess, latencyMS: 42, requestSize: 10, responseSize: 20,
 		internalRef: "ref-1", idempotencyKey: "idem-1",
-		requestHeaders:  map[string][]string{"Content-Type": {"application/json"}},
+		requestHeaders:  map[string]string{"Content-Type": "application/json"},
 		requestBody:     []byte(`{"a":1}`),
-		responseHeaders: map[string][]string{"Content-Type": {"application/json"}},
+		responseHeaders: map[string]string{"Content-Type": "application/json"},
 		responseBody:    []byte(`{"b":2}`),
 		callErr:         "boom",
 		tags:            map[string]any{"k": "v"},
@@ -186,7 +186,7 @@ func TestBuildInsertPlaceholdersAndNullMapping(t *testing.T) {
 	if args[6] != "10.1.2.3" || args[7] != 200 || args[12] != "ref-1" || args[13] != "idem-1" || args[18] != "boom" {
 		t.Errorf("full row nullable args wrong: %v %v %v %v %v", args[6], args[7], args[12], args[13], args[18])
 	}
-	if args[14] != `{"Content-Type":["application/json"]}` || args[15] != `{"a":1}` || args[19] != `{"k":"v"}` {
+	if args[14] != `{"Content-Type":"application/json"}` || args[15] != `{"a":1}` || args[19] != `{"k":"v"}` {
 		t.Errorf("full row jsonb args wrong: %v %v %v", args[14], args[15], args[19])
 	}
 

@@ -189,8 +189,8 @@ func jsonBody(b []byte) any {
 	return string(b)
 }
 
-// jsonHeaders marshals a header map for its jsonb param; nil means NULL.
-func jsonHeaders(headers map[string][]string) any {
+// jsonHeaders marshals a flattened header map for its jsonb param; nil means NULL.
+func jsonHeaders(headers map[string]string) any {
 	if headers == nil {
 		return nil
 	}

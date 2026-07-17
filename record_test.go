@@ -97,10 +97,13 @@ func TestBuildRecordSuccessFields(t *testing.T) {
 	if rec.requestSize != int64(len(reqBody)) || rec.responseSize != int64(len(respBody)) {
 		t.Errorf("sizes = %d/%d, want actual byte counts %d/%d", rec.requestSize, rec.responseSize, len(reqBody), len(respBody))
 	}
-	if got := rec.requestHeaders["Authorization"]; !reflect.DeepEqual(got, []string{maskedValue}) {
+	if got := rec.requestHeaders["Authorization"]; got != maskedValue {
 		t.Errorf("Authorization = %v, want masked", got)
 	}
-	if got := rec.responseHeaders["Set-Cookie"]; !reflect.DeepEqual(got, []string{maskedValue}) {
+	if got := rec.requestHeaders["Content-Type"]; got != "application/json" {
+		t.Errorf("Content-Type = %v, want flattened scalar value", got)
+	}
+	if got := rec.responseHeaders["Set-Cookie"]; got != maskedValue {
 		t.Errorf("Set-Cookie = %v, want masked", got)
 	}
 	var rb map[string]any

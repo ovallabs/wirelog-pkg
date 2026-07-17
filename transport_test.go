@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -99,10 +98,10 @@ func TestRoundTripFullRecordOnSuccess(t *testing.T) {
 	if rec.remoteIP != "127.0.0.1" {
 		t.Errorf("remoteIP = %q, want the httptest server's 127.0.0.1", rec.remoteIP)
 	}
-	if got := rec.requestHeaders["Authorization"]; !reflect.DeepEqual(got, []string{maskedValue}) {
+	if got := rec.requestHeaders["Authorization"]; got != maskedValue {
 		t.Errorf("Authorization = %v, want masked before enqueue", got)
 	}
-	if got := rec.responseHeaders["Set-Cookie"]; !reflect.DeepEqual(got, []string{maskedValue}) {
+	if got := rec.responseHeaders["Set-Cookie"]; got != maskedValue {
 		t.Errorf("Set-Cookie = %v, want masked", got)
 	}
 	var rb, sb map[string]any
@@ -182,7 +181,7 @@ func TestRoundTripSkipBodyPathsRecordMetadataOnly(t *testing.T) {
 	if rec.responseSize != int64(len(respPayload)) {
 		t.Errorf("responseSize = %d, want Content-Length %d", rec.responseSize, len(respPayload))
 	}
-	if got := rec.requestHeaders["Authorization"]; !reflect.DeepEqual(got, []string{maskedValue}) {
+	if got := rec.requestHeaders["Authorization"]; got != maskedValue {
 		t.Errorf("Authorization = %v, want masked headers even on skip-body path", got)
 	}
 	if rec.statusCode != 200 || rec.outcome != outcomeSuccess {

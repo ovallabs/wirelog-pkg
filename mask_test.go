@@ -20,30 +20,38 @@ func TestMaskHeadersBuiltinAndCustomDeny(t *testing.T) {
 		"Content-Type":    {"application/json"},
 	}
 	got := maskHeaders(src, deny)
-	want := map[string][]string{
-		"Authorization":   {maskedValue},
-		"Cookie":          {maskedValue},
-		"X-Api-Key":       {maskedValue},
-		"X-Custom-Secret": {maskedValue},
-		"Content-Type":    {"application/json"},
+	want := map[string]string{
+		"Authorization":   maskedValue,
+		"Cookie":          maskedValue,
+		"X-Api-Key":       maskedValue,
+		"X-Custom-Secret": maskedValue,
+		"Content-Type":    "application/json",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("maskHeaders = %v, want %v", got, want)
 	}
 }
 
-// TestMaskHeadersDoesNotMutateSource checks masking copies, and the
-// copy shares no value slices with the source map.
+// TestMaskHeadersDoesNotMutateSource checks masking builds a copy and leaves
+// the source header map untouched.
 func TestMaskHeadersDoesNotMutateSource(t *testing.T) {
 	src := http.Header{"Authorization": {"Bearer abc"}, "Accept": {"*/*"}}
 	_ = maskHeaders(src, denyHeaderSet(nil))
-	if src.Get("Authorization") != "Bearer abc" {
+	if src.Get("Authorization") != "Bearer abc" || src.Get("Accept") != "*/*" {
 		t.Error("source header map was mutated")
 	}
+}
+
+// TestMaskHeadersFlattenMultiValues checks repeated header values comma-join
+// into one scalar string per key.
+func TestMaskHeadersFlattenMultiValues(t *testing.T) {
+	src := http.Header{"X-Trace": {"hop-a", "hop-b"}, "Set-Cookie": {"s=1", "t=2"}}
 	got := maskHeaders(src, denyHeaderSet(nil))
-	got["Accept"][0] = "mutated"
-	if src["Accept"][0] != "*/*" {
-		t.Error("masked copy shares value slices with the source")
+	if got["X-Trace"] != "hop-a, hop-b" {
+		t.Errorf("X-Trace = %q, want comma-joined hop-a, hop-b", got["X-Trace"])
+	}
+	if got["Set-Cookie"] != maskedValue {
+		t.Errorf("Set-Cookie = %q, want single mask constant", got["Set-Cookie"])
 	}
 }
 
@@ -53,7 +61,7 @@ func TestMaskHeadersCaseInsensitive(t *testing.T) {
 	src["AUTHORIZATION"] = []string{"Bearer abc"} // bypass canonicalization
 	src["x-signature"] = []string{"sig"}
 	got := maskHeaders(src, denyHeaderSet(nil))
-	if got["AUTHORIZATION"][0] != maskedValue || got["x-signature"][0] != maskedValue {
+	if got["AUTHORIZATION"] != maskedValue || got["x-signature"] != maskedValue {
 		t.Errorf("case-insensitive deny failed: %v", got)
 	}
 }

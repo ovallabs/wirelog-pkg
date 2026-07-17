@@ -42,20 +42,22 @@ func maskFieldSet(fields []string) map[string]struct{} {
 	return set
 }
 
-// maskHeaders returns a masked copy; the source map is never mutated.
-// Denied headers always become the mask constant — a custom Masker never
-// applies here. Empty input returns nil so the jsonb column maps to NULL.
-func maskHeaders(src http.Header, deny map[string]struct{}) map[string][]string {
+// maskHeaders returns a masked, flattened copy; the source map is never
+// mutated. Each key maps to one scalar string — repeated values are
+// comma-joined — and denied headers always become the mask constant; a
+// custom Masker never applies here. Empty input returns nil so the jsonb
+// column maps to NULL.
+func maskHeaders(src http.Header, deny map[string]struct{}) map[string]string {
 	if len(src) == 0 {
 		return nil
 	}
-	out := make(map[string][]string, len(src))
-	for k, vals := range src {
-		if _, denied := deny[strings.ToLower(k)]; denied {
-			out[k] = []string{maskedValue}
+	out := make(map[string]string, len(src))
+	for key, vals := range src {
+		if _, denied := deny[strings.ToLower(key)]; denied {
+			out[key] = maskedValue
 			continue
 		}
-		out[k] = append([]string(nil), vals...)
+		out[key] = strings.Join(vals, ", ")
 	}
 	return out
 }
