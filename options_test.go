@@ -51,6 +51,20 @@ func TestOptionsApply(t *testing.T) {
 	}
 }
 
+// TestWithBatchSizeClampsToParameterLimit checks oversized batch sizes clamp
+// so a flush can never exceed Postgres's 65535 bind-parameter limit.
+func TestWithBatchSizeClampsToParameterLimit(t *testing.T) {
+	o := defaultOptions()
+	WithBatchSize(5000)(&o)
+	if o.batchSize != maxBatchSize {
+		t.Errorf("batchSize = %d, want clamped to %d", o.batchSize, maxBatchSize)
+	}
+	if maxBatchSize*colCount >= 65535 {
+		t.Errorf("maxBatchSize %d × %d columns = %d params, must stay under 65535",
+			maxBatchSize, colCount, maxBatchSize*colCount)
+	}
+}
+
 // TestOptionsRejectInvalidValues checks zero, negative, and nil option
 // values keep the defaults instead of breaking the writer.
 func TestOptionsRejectInvalidValues(t *testing.T) {

@@ -122,6 +122,10 @@ const insertColumns = "provider, consumer, operation, endpoint, path, method, " 
 
 const colCount = 19
 
+// maxBatchSize keeps one multi-row INSERT under Postgres's 65535
+// bind-parameter statement limit (65535 / colCount ≈ 3449) with headroom.
+const maxBatchSize = 3000
+
 // jsonbCols marks 1-based placeholder positions cast with ::jsonb so the
 // driver never has to guess the parameter type.
 var jsonbCols = map[int]bool{14: true, 15: true, 16: true, 17: true, 19: true}

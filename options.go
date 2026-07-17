@@ -38,12 +38,13 @@ func WithBuffer(n int) Option {
 	}
 }
 
-// WithBatchSize sets the writer flush batch size (default 100); non-positive
-// values keep the default.
+// WithBatchSize sets the writer flush batch size (default 100). Non-positive
+// values keep the default; values above maxBatchSize clamp so one INSERT
+// never exceeds Postgres's bind-parameter limit.
 func WithBatchSize(n int) Option {
 	return func(o *options) {
 		if n > 0 {
-			o.batchSize = n
+			o.batchSize = min(n, maxBatchSize)
 		}
 	}
 }
