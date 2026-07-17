@@ -337,6 +337,50 @@ func TestRoundTripFullBufferDropsAndCounts(t *testing.T) {
 	}
 }
 
+// TestRoundTripPanickingCallbackNeverFailsCall enforces B2 against user
+// code: a panicking Masker or PathNormalizer abandons the record, counts it
+// as dropped, and the caller still gets the response.
+func TestRoundTripPanickingCallbackNeverFailsCall(t *testing.T) {
+	panickingCallbacks := map[string]ConfigOption{
+		"panicking Masker": WithMasker(func(field string, value any) any {
+			panic("masker exploded")
+		}),
+		"panicking PathNormalizer": func(cfg *Config) {
+			cfg.PathNormalizer = func(string) string { panic("normalizer exploded") }
+		},
+	}
+	for name, opt := range panickingCallbacks {
+		t.Run(name, func(t *testing.T) {
+			inner := &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(strings.NewReader(`{"msisdn":"+237670000001"}`)),
+			}
+			tr, ch, dropped := newTestTransport(&staticRoundTripper{resp: inner},
+				NewConfig("magma", WithCaptureBodies(true), opt), "", 8)
+			req, err := http.NewRequest(http.MethodPost, "http://magma/v1/transfers", strings.NewReader(`{}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, rtErr := tr.RoundTrip(req)
+			if rtErr != nil || resp == nil || resp.StatusCode != 200 {
+				t.Fatalf("call failed under panicking callback (B2): resp=%v err=%v", resp, rtErr)
+			}
+			body, _ := io.ReadAll(resp.Body)
+			if string(body) != `{"msisdn":"+237670000001"}` {
+				t.Errorf("caller body = %q, want identical bytes", body)
+			}
+			if got := dropped.Load(); got != 1 {
+				t.Errorf("dropped = %d, want 1 (abandoned capture must be counted)", got)
+			}
+			select {
+			case rec := <-ch:
+				t.Fatalf("panicking callback still enqueued a record: %+v", rec)
+			default:
+			}
+		})
+	}
+}
+
 // TestTransportConcurrentUse hammers one transport from many goroutines; the
 // race detector run enforces B17.
 func TestTransportConcurrentUse(t *testing.T) {

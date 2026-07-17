@@ -53,10 +53,23 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		respBody = full
 	}
 
-	rec := t.buildRecord(exchange{
+	t.enqueueRecord(exchange{
 		req: req, resp: resp, err: err, latency: latency,
 		reqBody: reqBody, respBody: respBody,
 	})
+	return resp, err
+}
+
+// enqueueRecord builds and enqueues the record for one exchange. It recovers
+// from panicking user callbacks (Masker, PathNormalizer) so capture can never
+// fail the provider call (B2); the abandoned record is counted as dropped.
+func (t *transport) enqueueRecord(x exchange) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.dropped.Add(1)
+		}
+	}()
+	rec := t.buildRecord(x)
 	// B2: enqueue never blocks — a full buffer drops and counts the record;
 	// the letter itself always goes out.
 	select {
@@ -64,7 +77,6 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	default:
 		t.dropped.Add(1)
 	}
-	return resp, err
 }
 
 // matchAny reports whether any non-empty needle is a substring of path;
