@@ -99,6 +99,12 @@ func TestNilReceiverCloseAndDropped(t *testing.T) {
 	}
 }
 
+// TestZeroValueCloseDoesNotPanic checks Close also survives a non-nil but
+// never-initialized Wirelog, whose writer and pool are nil.
+func TestZeroValueCloseDoesNotPanic(t *testing.T) {
+	(&Wirelog{}).Close()
+}
+
 // TestNewRejectsInvalidURL checks New fails fast on an unparseable dbURL.
 func TestNewRejectsInvalidURL(t *testing.T) {
 	if _, err := New(context.Background(), "://not-a-url"); err == nil {

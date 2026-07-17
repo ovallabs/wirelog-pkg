@@ -54,8 +54,13 @@ func (wl *Wirelog) Close() {
 		return
 	}
 	wl.closeOnce.Do(func() {
-		wl.w.closeAndDrain()
-		wl.pool.Close()
+		// guard each field: a zero-value Wirelog never started a writer or pool
+		if wl.w != nil {
+			wl.w.closeAndDrain()
+		}
+		if wl.pool != nil {
+			wl.pool.Close()
+		}
 	})
 }
 
