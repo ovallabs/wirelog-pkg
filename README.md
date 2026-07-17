@@ -72,7 +72,13 @@ resp, err := client.Do(req)
 
 `wl.Dropped()` reports records that never reached the database — non-blocking
 enqueue drops plus failed-insert batches. Any logger with
-`Printf(format string, args ...any)` satisfies `wirelog.Logger`.
+`Printf(format string, args ...any)` satisfies `wirelog.Logger`. Both `Close`
+and `Dropped` are safe on a nil `*Wirelog`, so the degraded pattern above
+needs no guards.
+
+In production, always set `WithLogger` and alert on a growing `Dropped()`:
+the default logger is a silent no-op, so with it a misconfigured database
+drops every record without a single line of output.
 
 Prefer `context.WithTimeout` on the request over `http.Client.Timeout` for
 per-call deadlines. The client's timer cancels the request in a way that can
@@ -108,7 +114,8 @@ Provider config (`wirelog.NewConfig(provider, ...)`):
 | `WithMasker(m)` | `"•••"` constant | custom masking for matched JSON body fields (headers always get the constant) |
 
 Path options match as substrings of `req.URL.Path` only, never the query
-string. Bodies are truncated to `MaxBodyBytes` (default 16384) before
+string. Substring means `/auth` also matches `/authors` — choose needles
+accordingly (a trailing slash or a more specific fragment narrows the match). Bodies are truncated to `MaxBodyBytes` (default 16384) before
 parsing; non-JSON bodies are stored as `{"_raw": "...", "_truncated": true}`.
 The default mask list covers MSISDNs, account numbers, names, tokens, and
 similar fields — see `defaultMaskFields` in [defaults.go](defaults.go).
