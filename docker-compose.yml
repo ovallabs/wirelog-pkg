@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wirelog-postgres
+    ports:
+      - "5439:5432"
+    environment:
+      POSTGRES_USER: wirelog
+      POSTGRES_PASSWORD: wirelog
+      POSTGRES_DB: wirelog
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wirelog -d wirelog"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
