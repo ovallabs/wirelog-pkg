@@ -14,6 +14,9 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
+// EnvDatabaseURL is the conventional environment variable holding the wirelog Postgres DSN.
+const EnvDatabaseURL = "WIRELOG_DATABASE_URL"
+
 // Wirelog owns the record queue, the single writer goroutine, and the pgx pool.
 type Wirelog struct {
 	pool      *pgxpool.Pool
