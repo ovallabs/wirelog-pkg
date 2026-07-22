@@ -118,13 +118,16 @@ func TestNewRejectsInvalidURL(t *testing.T) {
 // returns a canned response, standing in for a provider's own proxy transport.
 type markerRoundTripper struct{ called *atomic.Bool }
 
-// RoundTrip marks the transport reached and returns a fixed JSON response.
-func (m markerRoundTripper) RoundTrip(_ *http.Request) (*http.Response, error) {
+// RoundTrip marks the transport reached and returns a fixed JSON response,
+// populating Request and Status as a real transport would.
+func (m markerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	m.called.Store(true)
 	return &http.Response{
 		StatusCode: http.StatusOK,
+		Status:     "200 OK",
 		Header:     http.Header{"Content-Type": {"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+		Request:    req,
 	}, nil
 }
 

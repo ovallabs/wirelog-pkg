@@ -51,7 +51,8 @@ func run() error {
 	srv := newStubMagma()
 	defer srv.Close()
 
-	wl, err := wirelog.New(ctx, databaseURL(),
+	dsn := databaseURL()
+	wl, err := wirelog.New(ctx, dsn,
 		wirelog.WithDefaultConsumer("magma-demo"),
 		wirelog.WithAutoMigrate(true),
 		wirelog.WithLogger(log.New(os.Stdout, "wirelog: ", log.LstdFlags)))
@@ -59,7 +60,7 @@ func run() error {
 		return fmt.Errorf("connect to Postgres (is `docker compose up -d` running?): %w", err)
 	}
 
-	pool, err := pgxpool.New(ctx, databaseURL())
+	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return err
 	}
