@@ -11,7 +11,8 @@ type Operation string
 type Masker func(field string, value any) any
 
 // Config is per-provider capture configuration. It is read-only shared state
-// once HTTPClient mints a transport from it; never mutate it afterwards.
+// once HTTPClient or WrapTransport mints a transport from it; never mutate it
+// afterwards.
 type Config struct {
 	Provider       string
 	Consumer       string

@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -109,5 +111,78 @@ func TestZeroValueCloseDoesNotPanic(t *testing.T) {
 func TestNewRejectsInvalidURL(t *testing.T) {
 	if _, err := New(context.Background(), "://not-a-url"); err == nil {
 		t.Fatal("New must fail on an unparseable database URL")
+	}
+}
+
+// markerRoundTripper is a base transport that records it was reached and
+// returns a canned response, standing in for a provider's own proxy transport.
+type markerRoundTripper struct{ called *atomic.Bool }
+
+// RoundTrip marks the transport reached and returns a fixed JSON response.
+func (m markerRoundTripper) RoundTrip(_ *http.Request) (*http.Response, error) {
+	m.called.Store(true)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": {"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+	}, nil
+}
+
+// TestWrapTransportKeepsCustomBaseAndCaptures verifies WrapTransport records
+// the exchange while forwarding to the caller's own base transport, so a
+// provider's proxy dialer survives instead of being replaced.
+func TestWrapTransportKeepsCustomBaseAndCaptures(t *testing.T) {
+	var called atomic.Bool
+	base := markerRoundTripper{called: &called}
+	wl := &Wirelog{ch: make(chan record, 4), opts: defaultOptions()}
+
+	rt := wl.WrapTransport(NewConfig("magma", WithCaptureBodies(true)), base)
+	tp, ok := rt.(*transport)
+	if !ok {
+		t.Fatalf("WrapTransport = %T, want wirelog *transport", rt)
+	}
+	if _, ok := tp.next.(markerRoundTripper); !ok {
+		t.Fatalf("wrapped next = %T, want the supplied base (proxy transport would be lost)", tp.next)
+	}
+
+	resp, err := (&http.Client{Transport: rt}).Get("http://magma.example/v1/transfers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+
+	if !called.Load() {
+		t.Error("custom base was not reached — capture must forward to it, not replace it")
+	}
+	select {
+	case <-wl.ch:
+	default:
+		t.Error("no record enqueued — capture did not run over the custom base")
+	}
+}
+
+// TestWrapTransportNilReceiverReturnsBaseUnchanged checks the degradation
+// contract: a nil *Wirelog hands the base back untouched so the provider
+// still works without capture.
+func TestWrapTransportNilReceiverReturnsBaseUnchanged(t *testing.T) {
+	var wl *Wirelog
+	base := otelhttp.NewTransport(http.DefaultTransport)
+	if got := wl.WrapTransport(NewConfig("magma"), base); got != base {
+		t.Fatalf("nil receiver must return the supplied base unchanged, got %T", got)
+	}
+}
+
+// TestWrapTransportNilBaseFallsBackToOtel checks a nil base defaults to the
+// otelhttp → http.DefaultTransport chain.
+func TestWrapTransportNilBaseFallsBackToOtel(t *testing.T) {
+	wl := &Wirelog{ch: make(chan record, 1), opts: defaultOptions()}
+	rt := wl.WrapTransport(NewConfig("magma"), nil)
+	tp, ok := rt.(*transport)
+	if !ok {
+		t.Fatalf("WrapTransport(nil base) = %T, want *transport", rt)
+	}
+	if _, ok := tp.next.(*otelhttp.Transport); !ok {
+		t.Fatalf("nil base fallback next = %T, want *otelhttp.Transport", tp.next)
 	}
 }

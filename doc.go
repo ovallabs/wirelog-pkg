@@ -16,7 +16,9 @@
 // from the request, response, latency and outcome. The original is never
 // altered: the caller always receives the wrapped transport's response and
 // error, with only the response body swapped for a reader yielding
-// identical bytes.
+// identical bytes. HTTPClient mints this over the default chain (wirelog →
+// otelhttp → http.DefaultTransport); WrapTransport mints it over a
+// provider's own transport, so an egress proxy or custom TLS survives.
 //
 // Masking (mask.go) is the redaction desk: it blacks out sensitive lines on
 // the photocopy, never the original. Denied header values and matched JSON

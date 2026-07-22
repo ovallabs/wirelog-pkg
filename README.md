@@ -58,6 +58,22 @@ cfg := wirelog.NewConfig("magma",
 client := wl.HTTPClient(cfg) // transport chain: wirelog → otelhttp → http.DefaultTransport
 ```
 
+### Providers with their own transport (proxy, custom TLS)
+
+`HTTPClient` roots its chain at `http.DefaultTransport`. When a provider builds
+its own transport — an egress proxy, custom TLS — use `WrapTransport` so capture
+sits on top of that transport instead of discarding it:
+
+```go
+base := otelhttp.NewTransport(providerProxyTransport) // the provider's own transport
+providerClient := &http.Client{
+    Transport: wl.WrapTransport(cfg, base), // chain: wirelog → otelhttp → proxy
+}
+```
+
+`WrapTransport` is nil-safe: on a nil `*Wirelog` it returns `base` unchanged, so
+the provider keeps working (without capture) if wirelog init failed.
+
 Annotate calls through the request context so records carry business meaning:
 
 ```go
