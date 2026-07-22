@@ -16,13 +16,23 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
 	"github.com/ovallabs/wirelog"
 )
 
 const (
-	dbURL  = "postgres://wirelog:wirelog@localhost:5439/wirelog?sslmode=disable"
-	msisdn = "+237670000001"
+	defaultDBURL = "postgres://wirelog:wirelog@localhost:5439/wirelog?sslmode=disable"
+	msisdn       = "+237670000001"
 )
+
+// databaseURL resolves the DSN from the conventional env var, falling back to the docker-compose default.
+func databaseURL() string {
+	if url := os.Getenv(wirelog.EnvDatabaseURL); url != "" {
+		return url
+	}
+	return defaultDBURL
+}
 
 // main reports the run's verdict and sets the exit code.
 func main() {
@@ -41,7 +51,7 @@ func run() error {
 	srv := newStubMagma()
 	defer srv.Close()
 
-	wl, err := wirelog.New(ctx, dbURL,
+	wl, err := wirelog.New(ctx, databaseURL(),
 		wirelog.WithDefaultConsumer("magma-demo"),
 		wirelog.WithAutoMigrate(true),
 		wirelog.WithLogger(log.New(os.Stdout, "wirelog: ", log.LstdFlags)))
@@ -49,7 +59,7 @@ func run() error {
 		return fmt.Errorf("connect to Postgres (is `docker compose up -d` running?): %w", err)
 	}
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := pgxpool.New(ctx, databaseURL())
 	if err != nil {
 		return err
 	}
@@ -62,7 +72,11 @@ func run() error {
 	cfg := wirelog.NewConfig("magma",
 		wirelog.WithCaptureBodies(true),
 		wirelog.WithExtraMaskFields("sender_first_name", "sender_last_name", "sender_address"))
-	client := wl.HTTPClient(cfg)
+
+	// providers often own their transport (egress proxy, custom TLS); WrapTransport
+	// layers capture on top of it instead of replacing it — the same path httpx uses
+	providerTransport := otelhttp.NewTransport(&http.Transport{MaxIdleConns: 100})
+	client := &http.Client{Transport: wl.WrapTransport(cfg, providerTransport)}
 
 	driveTraffic(ctx, client, srv.URL)
 
