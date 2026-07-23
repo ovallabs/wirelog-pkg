@@ -186,9 +186,10 @@ unchanged, so the provider keeps working (without capture) if init failed. A nil
 `base` falls back to `otelhttp → http.DefaultTransport`.
 
 > At Ovalfi this wiring is centralized in the `httpx` package (in
-> integrations-playground), so providers never call wirelog directly — the
-> service registers its instance once and every provider is captured. `httpx` is
-> the resty-specific adapter; wirelog stays generic.
+> integrations-playground): it builds the one wirelog instance itself from a
+> connection-string env var on first use, so services wire nothing and every
+> provider is captured. `httpx` is the resty-specific adapter; wirelog stays
+> generic.
 
 ### 4. Annotate calls with business context
 
