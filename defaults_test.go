@@ -73,12 +73,16 @@ func TestRemainingConfigOptions(t *testing.T) {
 	m := func(field string, value any) any { return "X" }
 	cfg := NewConfig("magma",
 		WithCaptureBodies(true),
+		WithExtraDenyHeaders("X-User-Secret"),
 		WithExtraExcludePaths("/metrics"),
 		WithExtraSkipBodyPaths("/secrets"),
 		WithMasker(m),
 	)
 	if !cfg.CaptureBodies {
 		t.Error("WithCaptureBodies(true) not applied")
+	}
+	if got := cfg.DenyHeaders[len(cfg.DenyHeaders)-1]; got != "X-User-Secret" {
+		t.Errorf("DenyHeaders last = %q, want X-User-Secret", got)
 	}
 	if got := cfg.ExcludePaths[len(cfg.ExcludePaths)-1]; got != "/metrics" {
 		t.Errorf("ExcludePaths last = %q, want /metrics", got)

@@ -47,6 +47,11 @@ func WithCaptureBodies(b bool) ConfigOption {
 	return func(c *Config) { c.CaptureBodies = b }
 }
 
+// WithExtraDenyHeaders appends header names always masked, on top of the built-in auth denylist.
+func WithExtraDenyHeaders(h ...string) ConfigOption {
+	return func(c *Config) { c.DenyHeaders = append(c.DenyHeaders, h...) }
+}
+
 // WithExtraExcludePaths appends paths that produce no record at all.
 func WithExtraExcludePaths(p ...string) ConfigOption {
 	return func(c *Config) { c.ExcludePaths = append(c.ExcludePaths, p...) }
